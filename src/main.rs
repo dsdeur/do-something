@@ -30,7 +30,14 @@ fn create_commands(tasks: HashMap<String, String>) -> Command {
 
         app = app.subcommand(
             Command::new(key_static) // Use the static string
-                .about(value_static), // Use the static string
+                .about(value_static) // Use the static string
+                // Allow additional arguments to be passed to the command
+                .arg(
+                    clap::Arg::new("args")
+                        .num_args(0..)
+                        .trailing_var_arg(true)
+                        .allow_hyphen_values(true),
+                ),
         );
     }
 
@@ -48,14 +55,28 @@ fn main() {
     let app = create_commands(tasks);
 
     match app.get_matches().subcommand() {
-        Some((subcommand, _)) => {
+        Some((subcommand, sub_matches)) => {
             println!("Running task: {}", subcommand);
 
             if let Some(command_str) = task_map.get(subcommand) {
+                // Get additional arguments passed after the subcommand
+                let extra_args: Vec<&String> = sub_matches
+                    .get_many::<String>("args")
+                    .unwrap_or_default()
+                    .collect();
+
+                // Build the full command string with extra arguments
+                let full_command = if extra_args.is_empty() {
+                    command_str.to_string()
+                } else {
+                    let args_str: Vec<&str> = extra_args.iter().map(|s| s.as_str()).collect();
+                    format!("{} {}", command_str, args_str.join(" "))
+                };
+
                 // Execute the command
                 let status = std::process::Command::new("sh")
                     .arg("-c")
-                    .arg(command_str)
+                    .arg(&full_command)
                     .status()
                     .expect("Failed to execute command");
 
