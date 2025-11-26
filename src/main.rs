@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Command;
-use std::{collections::HashMap, env, fs, path::Path};
+use std::{collections::HashMap, env, fs, io::IsTerminal, path::Path, process::Stdio};
 
 fn process_config(dir: &Path) -> Result<Option<HashMap<String, String>>> {
     let file_path = dir.join("dosomething.json");
@@ -81,16 +81,25 @@ fn main() {
                     format!("{} {}", command_str, args_str.join(" "))
                 };
 
-                let status = std::process::Command::new("sh")
-                    .arg("-c")
+                let mut cmd = std::process::Command::new("sh");
+                cmd.arg("-c")
                     .arg(&full_command)
-                    .status()
-                    .expect("Failed to execute command");
+                    .stdin(Stdio::inherit())
+                    .stdout(Stdio::inherit())
+                    .stderr(Stdio::inherit());
 
-                if !status.success() {
-                    eprintln!("Command failed with exit code: {:?}", status.code());
-                    std::process::exit(1);
+                if std::io::stdout().is_terminal() {
+                    cmd.env("CLICOLOR", "1")
+                        .env("CLICOLOR_FORCE", "1")
+                        .env("FORCE_COLOR", "1");
                 }
+
+                let status = cmd
+                    .spawn()
+                    .expect("Failed to spawn command")
+                    .wait()
+                    .expect("Failed to wait on command");
+                std::process::exit(status.code().unwrap_or(1));
             }
         }
         None => {
