@@ -1,21 +1,43 @@
+use anyhow::Result;
 use clap::Command;
-use std::{collections::HashMap, env, fs, path::PathBuf};
+use std::{collections::HashMap, env, fs, path::Path};
 
-fn read_tasks() -> HashMap<String, String> {
-    let current_dir = env::current_dir()
-        .expect("Failed to get current directory. Are you running in a valid folder?");
+fn process_config(dir: &Path) -> Result<Option<HashMap<String, String>>> {
+    let file_path = dir.join("dosomething.json");
 
-    let mut file_path = PathBuf::from(&current_dir);
-    file_path.push("dosomething.json");
+    if !file_path.exists() {
+        return Ok(None);
+    }
 
-    let json_content = fs::read_to_string(&file_path)
-        .expect("Failed to read dosomething.json. Make sure the file exists and is readable.");
+    let json_content = fs::read_to_string(&file_path)?;
+    let tasks: HashMap<String, String> = serde_json::from_str(&json_content)?;
+    Ok(Some(tasks))
+}
 
-    let tasks: HashMap<String, String> = serde_json::from_str(&json_content).expect(
-        "Failed to parse dosomething.json. Ensure it is valid JSON with string key-value pairs.",
-    );
+fn read_tasks() -> Result<HashMap<String, String>> {
+    let mut dirs = Vec::new();
 
-    tasks
+    let config_dir = env::home_dir().map(|f| f.join(".config").join("dosomething"));
+    if let Some(dir) = &config_dir {
+        dirs.push(dir);
+    }
+
+    let current_dir = env::current_dir();
+    if let Ok(dir) = &current_dir {
+        dirs.push(dir);
+    }
+
+    let mut tasks = HashMap::new();
+    println!("Searching for dosomething.json in directories: {:?}", dirs);
+
+    for dir in dirs {
+        if let Some(config_tasks) = process_config(dir)? {
+            println!("Loaded tasks from {:?}", config_tasks);
+            tasks.extend(config_tasks);
+        }
+    }
+
+    Ok(tasks)
 }
 
 fn create_commands(tasks: HashMap<String, String>) -> Command {
@@ -46,7 +68,7 @@ fn create_commands(tasks: HashMap<String, String>) -> Command {
 
 fn main() {
     // Read tasks from dosomething.json
-    let tasks = read_tasks();
+    let tasks = read_tasks().unwrap_or_default();
 
     // Create a HashMap for quick lookup of commands
     let task_map: HashMap<String, String> = tasks.clone();
