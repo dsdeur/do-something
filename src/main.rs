@@ -37,11 +37,12 @@ fn read_tasks() -> Result<HashMap<String, String>> {
 }
 
 fn create_commands(tasks: HashMap<String, String>) -> Command {
-    let mut app = Command::new("DoSomething CLI")
-        .version("1.0")
-        .about("Run tasks from dosomething.json");
+    let mut app = Command::new("DoSomething CLI").version("1.0");
 
-    for (key, value) in tasks {
+    let mut entries: Vec<(String, String)> = tasks.into_iter().collect();
+    entries.sort_by(|a, b| a.0.cmp(&b.0));
+
+    for (key, value) in entries {
         let key_static: &'static str = Box::leak(key.into_boxed_str());
         let value_static: &'static str = Box::leak(value.into_boxed_str());
 
