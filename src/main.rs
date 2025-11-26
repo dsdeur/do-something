@@ -28,11 +28,9 @@ fn read_tasks() -> Result<HashMap<String, String>> {
     }
 
     let mut tasks = HashMap::new();
-    println!("Searching for dosomething.json in directories: {:?}", dirs);
 
     for dir in dirs {
         if let Some(config_tasks) = process_config(dir)? {
-            println!("Loaded tasks from {:?}", config_tasks);
             tasks.extend(config_tasks);
         }
     }
