@@ -1,13 +1,16 @@
 use std::{env, io::IsTerminal, process::Stdio};
 
-use crate::commands::Group;
+use crate::{
+    commands::Group,
+    config::{self, get_config_dir},
+};
 use anyhow::Result;
 use clap;
 
 pub fn load_commands() -> Result<Group> {
     let mut dirs = Vec::new();
 
-    if let Some(dir) = env::home_dir().map(|f| f.join(".config").join("ds")) {
+    if let Some(dir) = get_config_dir() {
         dirs.push(dir);
     }
 
@@ -44,6 +47,7 @@ pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String
 }
 
 pub fn run() -> Result<()> {
+    let config = config::GlobalConfig::load()?;
     let commands = load_commands()?;
     let app = commands.to_clap("DoSomething".to_string());
 
