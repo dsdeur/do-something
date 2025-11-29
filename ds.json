@@ -3,6 +3,7 @@
     "app": "cd ~/dev/brox/apps/app",
     "hello": "echo hello world",
     "group": {
+      "command": "echo test",
       "commands": {
         "run": "brox run",
         "test": {
