@@ -19,6 +19,7 @@ pub enum Command {
 pub struct Group {
     name: Option<String>,
     description: Option<String>,
+    command: Option<String>,
     commands: Box<HashMap<String, Command>>,
     envs: Option<Vec<String>>,
     dotenv_files: Option<Box<HashMap<String, String>>>,
@@ -32,6 +33,15 @@ pub fn merge_commands(base: &mut HashMap<String, Command>, new: HashMap<String, 
 
         base.insert(key, command);
     }
+}
+
+pub fn create_clap_command(key: String) -> clap::Command {
+    clap::Command::new(key).arg(
+        clap::Arg::new("args")
+            .num_args(0..)
+            .trailing_var_arg(true)
+            .allow_hyphen_values(true),
+    )
 }
 
 impl Group {
@@ -53,21 +63,14 @@ impl Group {
     }
 
     pub fn to_clap(&self, name: String) -> clap::Command {
-        let mut app = clap::Command::new(name);
+        let mut app = create_clap_command(name);
 
         for (key, def) in self.commands.iter() {
             let key = key.clone();
 
             match def {
                 Command::Command(_) => {
-                    app = app.subcommand(
-                        clap::Command::new(key).arg(
-                            clap::Arg::new("args")
-                                .num_args(0..)
-                                .trailing_var_arg(true)
-                                .allow_hyphen_values(true),
-                        ),
-                    );
+                    app = app.subcommand(create_clap_command(key));
                 }
                 Command::Subcommand {
                     name: _,
@@ -75,14 +78,7 @@ impl Group {
                     command: _,
                     envs: _,
                 } => {
-                    app = app.subcommand(
-                        clap::Command::new(key).arg(
-                            clap::Arg::new("args")
-                                .num_args(0..)
-                                .trailing_var_arg(true)
-                                .allow_hyphen_values(true),
-                        ),
-                    );
+                    app = app.subcommand(create_clap_command(key));
                 }
                 Command::Group(group) => {
                     let sub_com = group.to_clap(key.clone());
@@ -119,6 +115,12 @@ impl Group {
             }
         }
 
-        None
+        // If we reach here, it means the path corresponds to a group, not a command
+        // Return the command of the group if it exists
+        if let Some(command) = &current_group.command {
+            Some(command.clone())
+        } else {
+            None
+        }
     }
 }
