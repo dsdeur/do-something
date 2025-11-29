@@ -66,53 +66,5 @@ fn create_commands(tasks: HashMap<String, String>) -> Command {
 }
 
 fn main() {
-    let global_config = config::GlobalConfig::default();
-    let tasks = read_tasks().unwrap_or_default();
-    let task_map: HashMap<String, String> = tasks.clone();
-    // let app = create_commands(tasks);
-
     run().unwrap();
-
-    // match new_app.get_matches().subcommand() {
-    //     Some((subcommand, sub_matches)) => {
-    //         println!("Running task: {}", subcommand);
-
-    //         // if let Some(command_str) = task_map.get(subcommand) {
-    //         //     let extra_args: Vec<&String> = sub_matches
-    //         //         .get_many::<String>("args")
-    //         //         .unwrap_or_default()
-    //         //         .collect();
-
-    //         //     let full_command = if extra_args.is_empty() {
-    //         //         command_str.to_string()
-    //         //     } else {
-    //         //         let args_str: Vec<&str> = extra_args.iter().map(|s| s.as_str()).collect();
-    //         //         format!("{} {}", command_str, args_str.join(" "))
-    //         //     };
-
-    //         //     let mut cmd = std::process::Command::new("sh");
-    //         //     cmd.arg("-c")
-    //         //         .arg(&full_command)
-    //         //         .stdin(Stdio::inherit())
-    //         //         .stdout(Stdio::inherit())
-    //         //         .stderr(Stdio::inherit());
-
-    //         //     if std::io::stdout().is_terminal() {
-    //         //         cmd.env("CLICOLOR", "1")
-    //         //             .env("CLICOLOR_FORCE", "1")
-    //         //             .env("FORCE_COLOR", "1");
-    //         //     }
-
-    //         //     let status = cmd
-    //         //         .spawn()
-    //         //         .expect("Failed to spawn command")
-    //         //         .wait()
-    //         //         .expect("Failed to wait on command");
-    //         //     std::process::exit(status.code().unwrap_or(1));
-    //         // }
-    //     }
-    //     None => {
-    //         println!("No valid subcommand provided.");
-    //     }
-    // }
 }
