@@ -1,0 +1,22 @@
+{
+  "commands": {
+    "app": "cd ~/dev/brox/apps/app",
+    "hello": "echo hello world",
+    "group": {
+      "commands": {
+        "run": "brox run",
+        "test": {
+          "command": "brox test",
+          "envs": []
+        }
+      },
+      "envs": [],
+      "dotenv_files": {}
+    }
+  },
+  "envs": ["dev", "local"],
+  "dotenv_files": {
+    "dev": ".env.common",
+    "local": ".env.local"
+  }
+}
