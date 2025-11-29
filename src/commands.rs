@@ -146,25 +146,10 @@ impl Group {
             match command {
                 Command::CommandConfig(cmd) => {
                     if is_in_scope(&cmd.root, &current_dir, &git_root)? {
-                        // cmd.command = if let Some(root) = &cmd.root {
-                        //     let path = resolve_path(&root.path)?;
-                        //     add_root(path, &cmd.command)
-                        // } else if let Some(root_path) = &root_path {
-                        //     add_root(root_path, &cmd.command)
-                        // } else {
-                        //     cmd.command.clone()
-                        // };
-
                         new_commands.insert(key.clone(), command.clone());
                     }
                 }
                 Command::Command(_) => {
-                    // let new_cmd = if let Some(root_path) = &root_path {
-                    //     add_root(root_path, cmd)
-                    // } else {
-                    //     cmd.clone()
-                    // };
-
                     new_commands.insert(key.clone(), command.clone());
                 }
                 Command::Group(sub_group) => {
