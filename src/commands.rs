@@ -21,7 +21,7 @@ pub enum Command {
 pub struct Group {
     name: Option<String>,
     description: Option<String>,
-    command: Option<String>,
+    default: Option<String>,
     commands: Box<HashMap<String, Command>>,
     envs: Option<Vec<String>>,
     dotenv_files: Option<Box<HashMap<String, String>>>,
@@ -127,7 +127,7 @@ impl Group {
 
         // If we reach here, it means the path corresponds to a group, not a command
         // Return the command of the group if it exists
-        if let Some(command) = &current_group.command {
+        if let Some(command) = &current_group.default {
             Some(command.clone())
         } else {
             None
