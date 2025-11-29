@@ -2,12 +2,12 @@ use std::{env, io::IsTerminal, process::Stdio};
 
 use crate::{
     commands::Group,
-    config::{self, get_config_dir},
+    config::{self, OnConflict, get_config_dir},
 };
 use anyhow::Result;
 use clap;
 
-pub fn load_commands() -> Result<Group> {
+pub fn load_commands(on_conflict: OnConflict) -> Result<Group> {
     let mut dirs = Vec::new();
 
     if let Some(dir) = get_config_dir() {
@@ -22,7 +22,7 @@ pub fn load_commands() -> Result<Group> {
 
     for dir in &dirs {
         if let Some(config_tasks) = Group::from_dir(dir)? {
-            commands.merge(config_tasks);
+            commands.merge(config_tasks, &on_conflict)?;
         }
     }
 
@@ -48,7 +48,7 @@ pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String
 
 pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
-    let commands = load_commands()?;
+    let commands = load_commands(config.on_conflict)?;
     let app = commands.to_clap("DoSomething".to_string());
 
     let matches = app.get_matches();

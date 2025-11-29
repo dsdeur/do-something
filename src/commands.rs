@@ -2,6 +2,8 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fs, path::Path};
 
+use crate::config::OnConflict;
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Command {
@@ -23,16 +25,6 @@ pub struct Group {
     commands: Box<HashMap<String, Command>>,
     envs: Option<Vec<String>>,
     dotenv_files: Option<Box<HashMap<String, String>>>,
-}
-
-pub fn merge_commands(base: &mut HashMap<String, Command>, new: HashMap<String, Command>) {
-    for (key, command) in new {
-        if base.get(&key).is_some() {
-            continue;
-        }
-
-        base.insert(key, command);
-    }
 }
 
 pub fn create_clap_command(key: String) -> clap::Command {
@@ -58,8 +50,26 @@ impl Group {
         Ok(Some(group))
     }
 
-    pub fn merge(&mut self, other: Group) {
-        merge_commands(&mut self.commands, *other.commands);
+    pub fn merge(&mut self, other: Group, on_conflict: &OnConflict) -> Result<()> {
+        let base = &mut self.commands;
+
+        for (key, command) in *other.commands {
+            if base.contains_key(&key) {
+                match on_conflict {
+                    OnConflict::Error => {
+                        return Err(anyhow::anyhow!(
+                            "Conflict detected for command key: {}. If you want to override, change the on_conflict setting to Override.",
+                            key
+                        ));
+                    }
+                    _ => (),
+                }
+            }
+
+            base.insert(key, command);
+        }
+
+        Ok(())
     }
 
     pub fn to_clap(&self, name: String) -> clap::Command {
