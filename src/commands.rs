@@ -4,6 +4,7 @@ use std::{
     collections::HashMap,
     fs,
     path::{Path, PathBuf},
+    vec,
 };
 
 use crate::{
@@ -13,6 +14,7 @@ use crate::{
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum RootScope {
+    Global,
     /// The current path must be inside the git root path
     GitRoot,
     /// The current folder must match the root path exactly
@@ -36,10 +38,316 @@ pub struct CommandConfig {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
-pub enum Command {
+pub enum CommandDefinition {
     Command(String),
     CommandConfig(CommandConfig),
     Group(Group),
+}
+
+#[derive(Debug, Clone)]
+pub struct Command {
+    pub command: String,
+    pub env_key: Option<String>,
+    pub env_file: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub root_path: Option<PathBuf>,
+    pub source_file: String,
+    pub key: Vec<String>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Commands(Vec<Command>);
+
+#[derive(Debug, Clone, Default)]
+struct CommandTree {
+    children: HashMap<String, CommandTree>,
+    command: Option<Command>,
+}
+
+impl Command {
+    pub fn to_clap_command(&self) -> clap::Command {
+        let key = self.key.last().unwrap().clone();
+
+        let mut command = clap::Command::new(key).arg(
+            clap::Arg::new("args")
+                .num_args(0..)
+                .trailing_var_arg(true)
+                .allow_hyphen_values(true),
+        );
+
+        if let Some(desc) = &self.description {
+            command = command.about(desc);
+        }
+
+        command
+    }
+}
+
+impl Commands {
+    pub fn merge(&self, other: Commands, on_conflict: &OnConflict) -> Result<Commands> {
+        let mut combined: Vec<Command> = self.0.iter().chain(other.0.iter()).cloned().collect();
+        let mut mapped = HashMap::new();
+
+        for command in combined.iter() {
+            if mapped.contains_key(&command.key) && matches!(on_conflict, OnConflict::Error) {
+                return Err(anyhow::anyhow!(
+                    "Conflict detected for command key: {}. If you want to override, change the on_conflict setting to Override.",
+                    command.key.join(".")
+                ));
+            }
+
+            mapped.insert(command.key.clone(), command.clone());
+        }
+
+        // Preserve order while removing duplicates
+        // We reverse the combined list as we override earlier commands with later ones
+        combined.reverse();
+        let mut res: Vec<Command> = combined
+            .iter()
+            .flat_map(|c| mapped.get(&c.key).cloned())
+            .collect();
+
+        // Reverse back to original order, now with duplicates removed
+        res.reverse();
+
+        Ok(Commands(res))
+    }
+
+    fn to_tree(&self) -> CommandTree {
+        let mut root = CommandTree {
+            children: HashMap::new(),
+            command: None,
+        };
+
+        for command in &self.0 {
+            let mut current = &mut root;
+
+            for key_part in &command.key {
+                current = current
+                    .children
+                    .entry(key_part.clone())
+                    .or_insert_with(|| CommandTree {
+                        children: HashMap::new(),
+                        command: None,
+                    });
+            }
+
+            current.command = Some(command.clone());
+        }
+
+        root
+    }
+
+    fn build_commands(node: &CommandTree, parent_cmd: clap::Command) -> clap::Command {
+        let mut cmd = parent_cmd;
+
+        for (_, child) in &node.children {
+            if let Some(c) = &child.command {
+                let mut sub_cmd = c.to_clap_command();
+
+                // Recursively add any nested subcommands
+                if !child.children.is_empty() {
+                    sub_cmd = Commands::build_commands(child, sub_cmd);
+                }
+
+                cmd = cmd.subcommand(sub_cmd);
+            }
+        }
+
+        cmd
+    }
+
+    pub fn to_clap(&self, name: String) -> Result<clap::Command> {
+        let app = create_clap_command(name);
+        let root = self.to_tree();
+        Ok(Commands::build_commands(&root, app))
+    }
+
+    pub fn command_from_path(&self, path: &[String]) -> Result<Option<String>> {
+        for command in &self.0 {
+            if command.key == path {
+                let cmd = &command.command;
+
+                if let Some(root) = &command.root_path {
+                    return Ok(Some(format!("cd {} && {}", root.display(), cmd)));
+                } else {
+                    return Ok(Some(cmd.clone()));
+                }
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+impl CommandDefinition {
+    pub fn is_in_scope(
+        &self,
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
+    ) -> Result<bool> {
+        let root = match self {
+            CommandDefinition::CommandConfig(cmd) => cmd.root.clone(),
+            CommandDefinition::Group(group) => group.root.clone(),
+            _ => None,
+        };
+
+        if let Some(root_config) = root {
+            let target_path = resolve_path(&root_config.path)?;
+
+            match root_config.scope {
+                Some(RootScope::Exact) => Ok(current_dir.as_ref() == target_path),
+                Some(RootScope::GitRoot) => {
+                    if let Some(git_root) = git_root {
+                        Ok(current_dir.as_ref().starts_with(&git_root) && git_root == &target_path)
+                    } else {
+                        Ok(false)
+                    }
+                }
+                Some(RootScope::Global) => Ok(true),
+                None => Ok(true),
+            }
+        } else {
+            Ok(true)
+        }
+    }
+
+    pub fn get_root_config(&self) -> Option<RootConfig> {
+        match self {
+            CommandDefinition::CommandConfig(cmd) => cmd.root.clone(),
+            CommandDefinition::Group(group) => group.root.clone(),
+            _ => None,
+        }
+    }
+
+    pub fn with_root(&self, root: Option<RootConfig>) -> CommandDefinition {
+        match self {
+            CommandDefinition::Command(cmd) => CommandDefinition::CommandConfig(CommandConfig {
+                name: None,
+                description: None,
+                envs: None,
+                command: cmd.clone(),
+                root,
+            }),
+            CommandDefinition::CommandConfig(cmd) => {
+                let mut new_cmd = cmd.clone();
+                new_cmd.root = root;
+                CommandDefinition::CommandConfig(new_cmd)
+            }
+            CommandDefinition::Group(group) => {
+                let mut new_group = group.clone();
+                new_group.root = root;
+                CommandDefinition::Group(new_group)
+            }
+        }
+    }
+
+    pub fn get_root_path(&self) -> Result<Option<PathBuf>> {
+        if let Some(root) = self.get_root_config() {
+            let path = resolve_path(&root.path)?;
+            Ok(Some(path))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub fn flatten(
+        &self,
+        parent_key: Vec<String>,
+        current_key: String,
+        parent_root: Option<RootConfig>,
+        current_dir: &Path,
+        git_root: &Option<PathBuf>,
+    ) -> Result<Commands> {
+        // If the command is out of scope, return an empty list
+        if !self.is_in_scope(current_dir, git_root)? {
+            return Ok(Commands(vec![]));
+        }
+
+        let item_root = self.get_root_config().or_else(|| parent_root.clone());
+        let with_root = self.with_root(item_root.clone());
+        let path = with_root.get_root_path()?;
+
+        // Create the new key
+        let mut new_key = parent_key.clone();
+        new_key.push(current_key.clone());
+
+        let res = match &with_root {
+            CommandDefinition::Command(cmd) => {
+                let command = Command {
+                    name: None,
+                    description: None,
+                    command: cmd.clone(),
+                    env_key: None,
+                    env_file: None,
+                    root_path: path,
+                    source_file: "".to_string(),
+                    key: new_key.clone(),
+                };
+
+                vec![command]
+            }
+            CommandDefinition::CommandConfig(cmd) => {
+                let command = Command {
+                    name: cmd.name.clone(),
+                    description: cmd.description.clone(),
+                    command: cmd.command.clone(),
+                    env_key: None,
+                    env_file: None,
+                    root_path: path,
+                    source_file: "".to_string(),
+                    key: new_key.clone(),
+                };
+
+                vec![command]
+            }
+            CommandDefinition::Group(group) => {
+                let mut results = Vec::new();
+
+                // If the group has a default command, add it first
+                // We don't flatten the default, as there is no name associated with it
+                if let Some(command) = &group.default {
+                    let command = Command {
+                        name: group.name.clone(),
+                        description: group.description.clone(),
+                        command: command.clone(),
+                        env_key: None,
+                        env_file: None,
+                        root_path: path.clone(),
+                        source_file: "".to_string(),
+                        key: new_key.clone(),
+                    };
+
+                    results.push(command);
+                }
+
+                // Process sub-commands
+                for (curr_key, command) in group.commands.iter() {
+                    // If the group is flattened, use the parent key
+                    let command_key = if let Some(GroupMode::Flattened) = group.mode {
+                        parent_key.clone()
+                    } else {
+                        new_key.clone()
+                    };
+
+                    let mut sub_results = command.flatten(
+                        command_key,
+                        curr_key.clone(),
+                        item_root.clone(),
+                        &current_dir,
+                        &git_root,
+                    )?;
+
+                    results.append(&mut sub_results.0);
+                }
+
+                results
+            }
+        };
+
+        Ok(Commands(res))
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -53,7 +361,7 @@ pub struct Group {
     name: Option<String>,
     description: Option<String>,
     default: Option<String>,
-    commands: Box<HashMap<String, Command>>,
+    commands: Box<HashMap<String, CommandDefinition>>,
     envs: Option<Vec<String>>,
     dotenv_files: Option<Box<HashMap<String, String>>>,
     root: Option<RootConfig>,
@@ -67,34 +375,6 @@ fn create_clap_command(key: String) -> clap::Command {
             .trailing_var_arg(true)
             .allow_hyphen_values(true),
     )
-}
-
-fn is_in_scope(
-    root: &Option<RootConfig>,
-    current_dir: impl AsRef<Path>,
-    git_root: &Option<PathBuf>,
-) -> Result<bool> {
-    if let Some(root_config) = root {
-        let target_path = resolve_path(&root_config.path)?;
-
-        match root_config.scope {
-            Some(RootScope::Exact) => Ok(current_dir.as_ref() == target_path),
-            Some(RootScope::GitRoot) => {
-                if let Some(git_root) = git_root {
-                    Ok(current_dir.as_ref().starts_with(&git_root) && git_root == &target_path)
-                } else {
-                    Ok(false)
-                }
-            }
-            None => Ok(true),
-        }
-    } else {
-        Ok(true)
-    }
-}
-
-fn add_root(root_path: impl AsRef<Path>, cmd: &str) -> String {
-    format!("cd {} && {}", root_path.as_ref().display(), cmd)
 }
 
 impl Group {
@@ -111,173 +391,23 @@ impl Group {
         Ok(Some(group))
     }
 
-    pub fn merge(&mut self, other: Group, on_conflict: &OnConflict) -> Result<()> {
-        let base = &mut self.commands;
-
-        for (key, command) in *other.commands {
-            if base.contains_key(&key) {
-                match on_conflict {
-                    OnConflict::Error => {
-                        return Err(anyhow::anyhow!(
-                            "Conflict detected for command key: {}. If you want to override, change the on_conflict setting to Override.",
-                            key
-                        ));
-                    }
-                    _ => (),
-                }
-            }
-
-            base.insert(key, command);
-        }
-
-        Ok(())
-    }
-
-    fn resolve(&mut self, current_dir: &Path, git_root: &Option<PathBuf>) -> Result<()> {
-        if !is_in_scope(&self.root, &current_dir, git_root)? {
-            // Clear commands if out of scope
-            self.commands.clear();
-            self.default = None;
-        };
-
-        let mut new_commands: HashMap<String, Command> = HashMap::new();
-
-        for (key, command) in self.commands.iter_mut() {
-            match command {
-                Command::CommandConfig(cmd) => {
-                    if is_in_scope(&cmd.root, &current_dir, &git_root)? {
-                        new_commands.insert(key.clone(), command.clone());
-                    }
-                }
-                Command::Command(_) => {
-                    new_commands.insert(key.clone(), command.clone());
-                }
-                Command::Group(sub_group) => {
-                    sub_group.resolve(current_dir, &git_root)?;
-
-                    match sub_group.mode {
-                        Some(GroupMode::Flattened) => {
-                            new_commands.extend(sub_group.commands.drain().map(|(k, v)| match v {
-                                Command::CommandConfig(command) => {
-                                    if command.root.is_none() {
-                                        let new_command = Command::CommandConfig(CommandConfig {
-                                            root: sub_group.root.clone(),
-                                            ..command
-                                        });
-                                        (k, new_command)
-                                    } else {
-                                        (k, Command::CommandConfig(command.clone()))
-                                    }
-                                }
-                                Command::Command(cmd) => (
-                                    k,
-                                    Command::CommandConfig(CommandConfig {
-                                        command: cmd,
-                                        root: sub_group.root.clone(),
-                                        name: None,
-                                        description: None,
-                                        envs: None,
-                                    }),
-                                ),
-                                _ => (k, v),
-                            }));
-                            sub_group.commands.clear();
-                        }
-                        _ => {
-                            new_commands.insert(key.clone(), command.clone());
-                        }
-                    }
-                }
-            }
-        }
-
-        self.commands = Box::new(new_commands);
-
-        Ok(())
-    }
-
-    pub fn to_clap(&mut self, name: String) -> Result<clap::Command> {
-        let mut app = create_clap_command(name);
+    pub fn flatten(&self) -> Result<Commands> {
         let current_dir = std::env::current_dir()?;
         let git_root = git_root();
+        let mut results = Vec::new();
 
-        self.resolve(&current_dir, &git_root)?;
+        for (key, command) in self.commands.iter() {
+            let mut sub_results = command.flatten(
+                vec![],
+                key.clone(),
+                self.root.clone(),
+                &current_dir,
+                &git_root,
+            )?;
 
-        for (key, def) in self.commands.iter_mut() {
-            let key = key.clone();
-
-            match def {
-                Command::Command(_) => {
-                    app = app.subcommand(create_clap_command(key));
-                }
-                Command::CommandConfig(_) => {
-                    app = app.subcommand(create_clap_command(key));
-                }
-                Command::Group(group) => {
-                    let sub_com = group.to_clap(key.clone())?;
-                    app = app.subcommand(sub_com);
-                }
-            }
+            results.append(&mut sub_results.0);
         }
 
-        Ok(app)
-    }
-
-    pub fn command_from_path(&self, path: &[String]) -> Result<Option<String>> {
-        let mut current_group = self;
-        let mut root_path = if let Some(root) = current_group.root.clone() {
-            Some(resolve_path(&root.path)?)
-        } else {
-            None
-        };
-
-        for (i, part) in path.iter().enumerate() {
-            match current_group.commands.get(part) {
-                Some(Command::Group(sub_group)) => {
-                    current_group = sub_group;
-
-                    if let Some(root) = &sub_group.root {
-                        root_path = Some(resolve_path(&root.path)?);
-                    }
-                }
-                Some(command) if i == path.len() - 1 => match command {
-                    Command::Command(cmd) => {
-                        if let Some(path) = root_path {
-                            return Ok(Some(add_root(path, cmd)));
-                        } else {
-                            return Ok(Some(cmd.clone()));
-                        };
-                    }
-                    Command::CommandConfig(command) => {
-                        if let Some(root) = &command.root {
-                            let path = resolve_path(&root.path)?;
-                            return Ok(Some(add_root(path, &command.command)));
-                        } else if let Some(path) = root_path {
-                            return Ok(Some(add_root(path, &command.command)));
-                        } else {
-                            return Ok(Some(command.command.clone()));
-                        };
-                    }
-                    Command::Group(_) => {
-                        return Ok(None);
-                    }
-                },
-                _ => {
-                    return Ok(None);
-                }
-            }
-        }
-
-        // If we reach here, it means the path corresponds to a group, not a command
-        // Return the command of the group if it exists
-        if let Some(command) = &current_group.default {
-            if let Some(path) = root_path {
-                return Ok(Some(add_root(path, command)));
-            } else {
-                return Ok(Some(command.clone()));
-            };
-        } else {
-            Ok(None)
-        }
+        Ok(Commands(results))
     }
 }

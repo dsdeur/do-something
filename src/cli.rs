@@ -1,13 +1,13 @@
 use std::{env, io::IsTerminal, process::Stdio};
 
 use crate::{
-    commands::Group,
+    commands::{Commands, Group},
     config::{self, OnConflict, get_config_dir},
 };
 use anyhow::Result;
 use clap;
 
-pub fn load_commands(on_conflict: OnConflict) -> Result<Group> {
+pub fn load_commands(on_conflict: &OnConflict) -> Result<Commands> {
     let mut dirs = Vec::new();
 
     if let Some(dir) = get_config_dir() {
@@ -18,11 +18,12 @@ pub fn load_commands(on_conflict: OnConflict) -> Result<Group> {
         dirs.push(dir);
     }
 
-    let mut commands = Group::default();
+    let mut commands = Commands::default();
 
     for dir in &dirs {
-        if let Some(config_tasks) = Group::from_dir(dir)? {
-            commands.merge(config_tasks, &on_conflict)?;
+        if let Some(group) = Group::from_dir(dir)? {
+            let group_commands = group.flatten()?;
+            commands = commands.merge(group_commands, on_conflict)?;
         }
     }
 
@@ -48,7 +49,7 @@ pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String
 
 pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
-    let mut commands = load_commands(config.on_conflict)?;
+    let commands = load_commands(&config.on_conflict)?;
     let app = commands.to_clap("DoSomething".to_string())?;
 
     let matches = app.get_matches();
@@ -63,6 +64,8 @@ pub fn run() -> Result<()> {
         let args_str: Vec<&str> = extra_args.iter().map(|s| s.as_str()).collect();
         format!("{} {}", command, args_str.join(" "))
     };
+
+    println!("Running: {}", full_command);
 
     let mut cmd = std::process::Command::new("sh");
     cmd.arg("-c")
