@@ -37,148 +37,64 @@ pub struct CommandConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum GroupMode {
+    Namespaced,
+    Flattened,
+}
+
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+pub struct Group {
+    name: Option<String>,
+    description: Option<String>,
+    default: Option<String>,
+    commands: Box<HashMap<String, CommandDefinition>>,
+    envs: Option<Vec<String>>,
+    dotenv_files: Option<Box<HashMap<String, String>>>,
+    root: Option<RootConfig>,
+    mode: Option<GroupMode>,
+}
+
+impl Group {
+    pub fn from_dir(dir: impl AsRef<Path>) -> Result<Option<Self>> {
+        let path = dir.as_ref().join("ds.json");
+
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let content = fs::read_to_string(path)?;
+        let group: Group = serde_json::from_str(&content)?;
+
+        Ok(Some(group))
+    }
+
+    pub fn flatten(&self) -> Result<Commands> {
+        let current_dir = std::env::current_dir()?;
+        let git_root = git_root();
+        let mut results = Vec::new();
+
+        for (key, command) in self.commands.iter() {
+            let mut sub_results = command.flatten(
+                vec![],
+                key.clone(),
+                self.root.clone(),
+                &current_dir,
+                &git_root,
+            )?;
+
+            results.append(&mut sub_results.0);
+        }
+
+        Ok(Commands(results))
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum CommandDefinition {
     Command(String),
     CommandConfig(CommandConfig),
     Group(Group),
-}
-
-#[derive(Debug, Clone)]
-pub struct Command {
-    pub command: String,
-    pub env_key: Option<String>,
-    pub env_file: Option<String>,
-    pub name: Option<String>,
-    pub description: Option<String>,
-    pub root_path: Option<PathBuf>,
-    pub source_file: String,
-    pub key: Vec<String>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct Commands(Vec<Command>);
-
-#[derive(Debug, Clone, Default)]
-struct CommandTree {
-    children: HashMap<String, CommandTree>,
-    command: Option<Command>,
-}
-
-impl Command {
-    pub fn to_clap_command(&self) -> clap::Command {
-        let key = self.key.last().unwrap().clone();
-
-        let mut command = clap::Command::new(key).arg(
-            clap::Arg::new("args")
-                .num_args(0..)
-                .trailing_var_arg(true)
-                .allow_hyphen_values(true),
-        );
-
-        if let Some(desc) = &self.description {
-            command = command.about(desc);
-        }
-
-        command
-    }
-}
-
-impl Commands {
-    pub fn merge(&self, other: Commands, on_conflict: &OnConflict) -> Result<Commands> {
-        let mut combined: Vec<Command> = self.0.iter().chain(other.0.iter()).cloned().collect();
-        let mut mapped = HashMap::new();
-
-        for command in combined.iter() {
-            if mapped.contains_key(&command.key) && matches!(on_conflict, OnConflict::Error) {
-                return Err(anyhow::anyhow!(
-                    "Conflict detected for command key: {}. If you want to override, change the on_conflict setting to Override.",
-                    command.key.join(".")
-                ));
-            }
-
-            mapped.insert(command.key.clone(), command.clone());
-        }
-
-        // Preserve order while removing duplicates
-        // We reverse the combined list as we override earlier commands with later ones
-        combined.reverse();
-        let mut res: Vec<Command> = combined
-            .iter()
-            .flat_map(|c| mapped.get(&c.key).cloned())
-            .collect();
-
-        // Reverse back to original order, now with duplicates removed
-        res.reverse();
-
-        Ok(Commands(res))
-    }
-
-    fn to_tree(&self) -> CommandTree {
-        let mut root = CommandTree {
-            children: HashMap::new(),
-            command: None,
-        };
-
-        for command in &self.0 {
-            let mut current = &mut root;
-
-            for key_part in &command.key {
-                current = current
-                    .children
-                    .entry(key_part.clone())
-                    .or_insert_with(|| CommandTree {
-                        children: HashMap::new(),
-                        command: None,
-                    });
-            }
-
-            current.command = Some(command.clone());
-        }
-
-        root
-    }
-
-    fn build_commands(node: &CommandTree, parent_cmd: clap::Command) -> clap::Command {
-        let mut cmd = parent_cmd;
-
-        for (_, child) in &node.children {
-            if let Some(c) = &child.command {
-                let mut sub_cmd = c.to_clap_command();
-
-                // Recursively add any nested subcommands
-                if !child.children.is_empty() {
-                    sub_cmd = Commands::build_commands(child, sub_cmd);
-                }
-
-                cmd = cmd.subcommand(sub_cmd);
-            }
-        }
-
-        cmd
-    }
-
-    pub fn to_clap(&self, name: String) -> Result<clap::Command> {
-        let app = create_clap_command(name);
-        let root = self.to_tree();
-        Ok(Commands::build_commands(&root, app))
-    }
-
-    pub fn command_from_path(&self, path: &[String]) -> Result<Option<String>> {
-        for command in &self.0 {
-            if command.key == path {
-                let cmd = &command.command;
-
-                if let Some(root) = &command.root_path {
-                    return Ok(Some(format!("cd {} && {}", root.display(), cmd)));
-                } else {
-                    return Ok(Some(cmd.clone()));
-                }
-            }
-        }
-
-        Ok(None)
-    }
 }
 
 impl CommandDefinition {
@@ -350,64 +266,139 @@ impl CommandDefinition {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum GroupMode {
-    Namespaced,
-    Flattened,
+#[derive(Debug, Clone)]
+pub struct Command {
+    pub command: String,
+    pub env_key: Option<String>,
+    pub env_file: Option<String>,
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub root_path: Option<PathBuf>,
+    pub source_file: String,
+    pub key: Vec<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct Group {
-    name: Option<String>,
-    description: Option<String>,
-    default: Option<String>,
-    commands: Box<HashMap<String, CommandDefinition>>,
-    envs: Option<Vec<String>>,
-    dotenv_files: Option<Box<HashMap<String, String>>>,
-    root: Option<RootConfig>,
-    mode: Option<GroupMode>,
-}
+impl Command {
+    pub fn to_clap_command(&self) -> clap::Command {
+        let key = self.key.last().unwrap().clone();
 
-fn create_clap_command(key: String) -> clap::Command {
-    clap::Command::new(key).arg(
-        clap::Arg::new("args")
-            .num_args(0..)
-            .trailing_var_arg(true)
-            .allow_hyphen_values(true),
-    )
-}
+        let mut command = clap::Command::new(key).arg(
+            clap::Arg::new("args")
+                .num_args(0..)
+                .trailing_var_arg(true)
+                .allow_hyphen_values(true),
+        );
 
-impl Group {
-    pub fn from_dir(dir: impl AsRef<Path>) -> Result<Option<Self>> {
-        let path = dir.as_ref().join("ds.json");
-
-        if !path.exists() {
-            return Ok(None);
+        if let Some(desc) = &self.description {
+            command = command.about(desc);
         }
 
-        let content = fs::read_to_string(path)?;
-        let group: Group = serde_json::from_str(&content)?;
+        command
+    }
+}
 
-        Ok(Some(group))
+#[derive(Debug, Clone, Default)]
+struct CommandTree {
+    children: HashMap<String, CommandTree>,
+    command: Option<Command>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct Commands(Vec<Command>);
+
+impl Commands {
+    pub fn merge(&self, other: Commands, on_conflict: &OnConflict) -> Result<Commands> {
+        let mut combined: Vec<Command> = self.0.iter().chain(other.0.iter()).cloned().collect();
+        let mut mapped = HashMap::new();
+
+        for command in combined.iter() {
+            if mapped.contains_key(&command.key) && matches!(on_conflict, OnConflict::Error) {
+                return Err(anyhow::anyhow!(
+                    "Conflict detected for command key: {}. If you want to override, change the on_conflict setting to Override.",
+                    command.key.join(".")
+                ));
+            }
+
+            mapped.insert(command.key.clone(), command.clone());
+        }
+
+        // Preserve order while removing duplicates
+        // We reverse the combined list as we override earlier commands with later ones
+        combined.reverse();
+        let mut res: Vec<Command> = combined
+            .iter()
+            .flat_map(|c| mapped.get(&c.key).cloned())
+            .collect();
+
+        // Reverse back to original order, now with duplicates removed
+        res.reverse();
+
+        Ok(Commands(res))
     }
 
-    pub fn flatten(&self) -> Result<Commands> {
-        let current_dir = std::env::current_dir()?;
-        let git_root = git_root();
-        let mut results = Vec::new();
+    fn to_tree(&self) -> CommandTree {
+        let mut root = CommandTree {
+            children: HashMap::new(),
+            command: None,
+        };
 
-        for (key, command) in self.commands.iter() {
-            let mut sub_results = command.flatten(
-                vec![],
-                key.clone(),
-                self.root.clone(),
-                &current_dir,
-                &git_root,
-            )?;
+        for command in &self.0 {
+            let mut current = &mut root;
 
-            results.append(&mut sub_results.0);
+            for key_part in &command.key {
+                current = current
+                    .children
+                    .entry(key_part.clone())
+                    .or_insert_with(|| CommandTree {
+                        children: HashMap::new(),
+                        command: None,
+                    });
+            }
+
+            current.command = Some(command.clone());
         }
 
-        Ok(Commands(results))
+        root
+    }
+
+    fn build_commands(node: &CommandTree, parent_cmd: clap::Command) -> clap::Command {
+        let mut cmd = parent_cmd;
+
+        for (_, child) in &node.children {
+            if let Some(c) = &child.command {
+                let mut sub_cmd = c.to_clap_command();
+
+                // Recursively add any nested subcommands
+                if !child.children.is_empty() {
+                    sub_cmd = Commands::build_commands(child, sub_cmd);
+                }
+
+                cmd = cmd.subcommand(sub_cmd);
+            }
+        }
+
+        cmd
+    }
+
+    pub fn to_clap(&self, name: String) -> Result<clap::Command> {
+        let app = clap::Command::new(name);
+        let root = self.to_tree();
+        Ok(Commands::build_commands(&root, app))
+    }
+
+    pub fn command_from_path(&self, path: &[String]) -> Result<Option<String>> {
+        for command in &self.0 {
+            if command.key == path {
+                let cmd = &command.command;
+
+                if let Some(root) = &command.root_path {
+                    return Ok(Some(format!("cd {} && {}", root.display(), cmd)));
+                } else {
+                    return Ok(Some(cmd.clone()));
+                }
+            }
+        }
+
+        Ok(None)
     }
 }
