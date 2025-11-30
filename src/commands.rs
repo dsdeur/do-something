@@ -364,17 +364,27 @@ impl Commands {
     fn build_commands(node: &CommandTree, parent_cmd: clap::Command) -> clap::Command {
         let mut cmd = parent_cmd;
 
-        for (_, child) in &node.children {
-            if let Some(c) = &child.command {
-                let mut sub_cmd = c.to_clap_command();
+        for (key, child) in &node.children {
+            let mut sub_cmd = if let Some(command) = &child.command {
+                command.to_clap_command()
+            } else {
+                clap::Command::new(key)
+                    .arg(
+                        clap::Arg::new("args")
+                            .num_args(0..)
+                            .trailing_var_arg(true)
+                            .allow_hyphen_values(true),
+                    )
+                    .flatten_help(true)
+                    .arg_required_else_help(true)
+            };
 
-                // Recursively add any nested subcommands
-                if !child.children.is_empty() {
-                    sub_cmd = Commands::build_commands(child, sub_cmd);
-                }
-
-                cmd = cmd.subcommand(sub_cmd);
+            // Recursively add any nested subcommands
+            if !child.children.is_empty() {
+                sub_cmd = Commands::build_commands(child, sub_cmd);
             }
+
+            cmd = cmd.subcommand(sub_cmd);
         }
 
         cmd
