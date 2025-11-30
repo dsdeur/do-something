@@ -9,7 +9,6 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
-    vec,
 };
 
 /// Configures when a command or group is available to run.
@@ -107,7 +106,7 @@ impl Group {
     }
 
     /// Flatten the group into a list of commands, applying the configuration.
-    pub fn flatten(&self, source: &String) -> Result<Commands> {
+    pub fn flatten(&self, source: &str) -> Result<Commands> {
         let current_dir = std::env::current_dir()?;
         let git_root = git_root();
         let mut results = Vec::new();
@@ -195,7 +194,7 @@ impl CommandDefinition {
         &self,
         parent_key: Vec<String>,
         current_key: String,
-        source: &String,
+        source: &str,
         parent_root: Option<RootConfig>,
         current_dir: &Path,
         git_root: &Option<PathBuf>,
@@ -220,7 +219,7 @@ impl CommandDefinition {
                     env_key: None,
                     env_file: None,
                     root_path: path,
-                    source_file: source.clone(),
+                    source_file: source.to_string(),
                     key: new_key.clone(),
                 };
 
@@ -234,7 +233,7 @@ impl CommandDefinition {
                     env_key: None,
                     env_file: None,
                     root_path: path,
-                    source_file: source.clone(),
+                    source_file: source.to_string(),
                     key: new_key.clone(),
                 };
 
@@ -253,7 +252,7 @@ impl CommandDefinition {
                         env_key: None,
                         env_file: None,
                         root_path: path.clone(),
-                        source_file: source.clone(),
+                        source_file: source.to_string(),
                         key: new_key.clone(),
                     };
 
@@ -326,6 +325,7 @@ impl Command {
 
     /// Convert the command into a Clap command for CLI integration.
     pub fn to_clap_command(&self) -> clap::Command {
+        // The key of a command is never empty, as it's always grouped in a root group
         let key = self.key.last().unwrap().clone();
 
         let mut command = clap::Command::new(key)
@@ -348,10 +348,12 @@ impl Command {
         }
 
         if let Some(_) = &self.env_key {
+            // TODO: Apply the env key logic
             todo!();
         }
 
         if let Some(_) = &self.env_file {
+            // TODO: Apply the env file logic
             todo!();
         }
 
