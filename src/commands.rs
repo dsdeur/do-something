@@ -296,13 +296,21 @@ impl CommandDefinition {
 /// All parent configuration has been applied.
 #[derive(Debug, Clone)]
 pub struct Command {
+    /// The command to run, does not yet include `cd` or env.
     pub command: String,
+    /// Optional key of the env to apply (not yet implemented).
     pub env_key: Option<String>,
+    /// Optional dotenv file to load (not yet implemented).
     pub env_file: Option<String>,
+    /// Optional name for the command.
     pub name: Option<String>,
+    /// Optional longer description for the command.
     pub description: Option<String>,
+    /// Optional root path where the command is run from.
     pub root_path: Option<PathBuf>,
+    /// The source file where the command was defined.
     pub source_file: String,
+    /// The key path representing the command's location in the hierarchy.
     pub key: Vec<String>,
 }
 
