@@ -28,18 +28,18 @@ pub struct RootConfig {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum GroupMode {
+    Namespaced,
+    Flattened,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CommandConfig {
     pub name: Option<String>,
     pub description: Option<String>,
     pub command: String,
     pub envs: Option<Vec<String>>,
     pub root: Option<RootConfig>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum GroupMode {
-    Namespaced,
-    Flattened,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -337,10 +337,7 @@ impl Commands {
     }
 
     fn to_tree(&self) -> CommandTree {
-        let mut root = CommandTree {
-            children: HashMap::new(),
-            command: None,
-        };
+        let mut root = CommandTree::default();
 
         for command in &self.0 {
             let mut current = &mut root;
