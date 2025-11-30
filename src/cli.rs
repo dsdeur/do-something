@@ -50,12 +50,12 @@ pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String
 pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
     let commands = load_commands(&config.on_conflict)?;
-    let app = commands.to_clap("DoSomething".to_string())?;
+    let app = commands.to_clap("DoSomething")?;
 
     let matches = app.get_matches();
     let (path, extra_args) = get_command_path(&matches);
     let command = commands
-        .command_from_path(&path)?
+        .command_from_path(&path)
         .ok_or(anyhow::anyhow!("Command not found"))?;
 
     let full_command = if extra_args.is_empty() {

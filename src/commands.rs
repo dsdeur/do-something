@@ -1,7 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
     vec,
@@ -47,9 +47,9 @@ pub struct Group {
     name: Option<String>,
     description: Option<String>,
     default: Option<String>,
-    commands: Box<HashMap<String, CommandDefinition>>,
+    commands: HashMap<String, CommandDefinition>,
     envs: Option<Vec<String>>,
-    dotenv_files: Option<Box<HashMap<String, String>>>,
+    dotenv_files: Option<HashMap<String, String>>,
     root: Option<RootConfig>,
     mode: Option<GroupMode>,
 }
@@ -299,12 +299,12 @@ impl Command {
 
 #[derive(Debug, Clone, Default)]
 struct CommandTree {
-    children: HashMap<String, CommandTree>,
+    children: BTreeMap<String, CommandTree>,
     command: Option<Command>,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct Commands(Vec<Command>);
+pub struct Commands(pub Vec<Command>);
 
 impl Commands {
     pub fn merge(&self, other: Commands, on_conflict: &OnConflict) -> Result<Commands> {
@@ -325,10 +325,17 @@ impl Commands {
         // Preserve order while removing duplicates
         // We reverse the combined list as we override earlier commands with later ones
         combined.reverse();
-        let mut res: Vec<Command> = combined
-            .iter()
-            .flat_map(|c| mapped.get(&c.key).cloned())
-            .collect();
+
+        let mut seen = HashSet::new();
+        let mut res = Vec::new();
+
+        for c in &combined {
+            if seen.insert(c.key.clone()) {
+                if let Some(cmd) = mapped.get(&c.key) {
+                    res.push(cmd.clone());
+                }
+            }
+        }
 
         // Reverse back to original order, now with duplicates removed
         res.reverse();
@@ -346,10 +353,7 @@ impl Commands {
                 current = current
                     .children
                     .entry(key_part.clone())
-                    .or_insert_with(|| CommandTree {
-                        children: HashMap::new(),
-                        command: None,
-                    });
+                    .or_insert_with(|| CommandTree::default());
             }
 
             current.command = Some(command.clone());
@@ -377,25 +381,20 @@ impl Commands {
         cmd
     }
 
-    pub fn to_clap(&self, name: String) -> Result<clap::Command> {
-        let app = clap::Command::new(name);
+    pub fn to_clap(&self, name: &str) -> Result<clap::Command> {
+        let app = clap::Command::new(name.to_owned());
         let root = self.to_tree();
         Ok(Commands::build_commands(&root, app))
     }
 
-    pub fn command_from_path(&self, path: &[String]) -> Result<Option<String>> {
-        for command in &self.0 {
-            if command.key == path {
-                let cmd = &command.command;
-
-                if let Some(root) = &command.root_path {
-                    return Ok(Some(format!("cd {} && {}", root.display(), cmd)));
-                } else {
-                    return Ok(Some(cmd.clone()));
-                }
+    pub fn command_from_path(&self, path: &[String]) -> Option<String> {
+        self.0.iter().find(|c| c.key == path).map(|command| {
+            let cmd = &command.command;
+            if let Some(root) = &command.root_path {
+                format!("cd {} && {}", root.display(), cmd)
+            } else {
+                cmd.clone()
             }
-        }
-
-        Ok(None)
+        })
     }
 }
