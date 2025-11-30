@@ -21,8 +21,9 @@ pub fn load_commands(on_conflict: &OnConflict) -> Result<Commands> {
     let mut commands = Commands::default();
 
     for dir in &dirs {
-        if let Some(group) = Group::from_dir(dir)? {
-            let group_commands = group.flatten()?;
+        let path = dir.join("ds.json");
+        if let Some(group) = Group::from_file(&path)? {
+            let group_commands = group.flatten(&path.display().to_string())?;
             commands = commands.merge(group_commands, on_conflict)?;
         }
     }

@@ -1,4 +1,5 @@
 use anyhow::Result;
+use clap::builder::styling;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
@@ -55,10 +56,8 @@ pub struct Group {
 }
 
 impl Group {
-    pub fn from_dir(dir: impl AsRef<Path>) -> Result<Option<Self>> {
-        let path = dir.as_ref().join("ds.json");
-
-        if !path.exists() {
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Option<Self>> {
+        if !path.as_ref().exists() {
             return Ok(None);
         }
 
@@ -68,7 +67,7 @@ impl Group {
         Ok(Some(group))
     }
 
-    pub fn flatten(&self) -> Result<Commands> {
+    pub fn flatten(&self, source: &String) -> Result<Commands> {
         let current_dir = std::env::current_dir()?;
         let git_root = git_root();
         let mut results = Vec::new();
@@ -77,6 +76,7 @@ impl Group {
             let mut sub_results = command.flatten(
                 vec![],
                 key.clone(),
+                source,
                 self.root.clone(),
                 &current_dir,
                 &git_root,
@@ -172,6 +172,7 @@ impl CommandDefinition {
         &self,
         parent_key: Vec<String>,
         current_key: String,
+        source: &String,
         parent_root: Option<RootConfig>,
         current_dir: &Path,
         git_root: &Option<PathBuf>,
@@ -198,7 +199,7 @@ impl CommandDefinition {
                     env_key: None,
                     env_file: None,
                     root_path: path,
-                    source_file: "".to_string(),
+                    source_file: source.clone(),
                     key: new_key.clone(),
                 };
 
@@ -212,7 +213,7 @@ impl CommandDefinition {
                     env_key: None,
                     env_file: None,
                     root_path: path,
-                    source_file: "".to_string(),
+                    source_file: source.clone(),
                     key: new_key.clone(),
                 };
 
@@ -231,7 +232,7 @@ impl CommandDefinition {
                         env_key: None,
                         env_file: None,
                         root_path: path.clone(),
-                        source_file: "".to_string(),
+                        source_file: source.clone(),
                         key: new_key.clone(),
                     };
 
@@ -250,6 +251,7 @@ impl CommandDefinition {
                     let mut sub_results = command.flatten(
                         command_key,
                         curr_key.clone(),
+                        source,
                         item_root.clone(),
                         &current_dir,
                         &git_root,
@@ -279,19 +281,37 @@ pub struct Command {
 }
 
 impl Command {
+    pub fn get_command(&self) -> String {
+        if let Some(root) = &self.root_path {
+            format!("cd {} && {}", root.display(), self.command)
+        } else {
+            self.command.clone()
+        }
+    }
+
     pub fn to_clap_command(&self) -> clap::Command {
         let key = self.key.last().unwrap().clone();
 
-        let mut command = clap::Command::new(key).arg(
-            clap::Arg::new("args")
-                .num_args(0..)
-                .trailing_var_arg(true)
-                .allow_hyphen_values(true),
-        );
+        let mut command = clap::Command::new(key)
+            .arg(
+                clap::Arg::new("args")
+                    .num_args(0..)
+                    .trailing_var_arg(true)
+                    .allow_hyphen_values(true),
+            )
+            .flatten_help(true);
 
-        if let Some(desc) = &self.description {
-            command = command.about(desc);
+        if let Some(name) = &self.name {
+            command = command.about(name);
+        } else {
+            command = command.about(&self.get_command());
         }
+
+        if let Some(description) = &self.description {
+            command = command.long_about(description);
+        }
+
+        command = command.after_help(format!("(Defined in {})", self.source_file));
 
         command
     }
@@ -382,19 +402,25 @@ impl Commands {
     }
 
     pub fn to_clap(&self, name: &str) -> Result<clap::Command> {
-        let app = clap::Command::new(name.to_owned());
+        const STYLES: styling::Styles = styling::Styles::styled()
+            .header(styling::AnsiColor::Green.on_default().bold())
+            .usage(styling::AnsiColor::Green.on_default().bold())
+            .literal(styling::AnsiColor::Blue.on_default().bold())
+            .placeholder(styling::AnsiColor::Cyan.on_default());
+
+        let app = clap::Command::new(name.to_owned())
+            .arg_required_else_help(true)
+            .flatten_help(true)
+            .styles(STYLES);
+
         let root = self.to_tree();
         Ok(Commands::build_commands(&root, app))
     }
 
     pub fn command_from_path(&self, path: &[String]) -> Option<String> {
-        self.0.iter().find(|c| c.key == path).map(|command| {
-            let cmd = &command.command;
-            if let Some(root) = &command.root_path {
-                format!("cd {} && {}", root.display(), cmd)
-            } else {
-                cmd.clone()
-            }
-        })
+        self.0
+            .iter()
+            .find(|c| c.key == path)
+            .map(|command| command.get_command())
     }
 }
