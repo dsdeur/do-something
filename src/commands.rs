@@ -311,6 +311,14 @@ impl Command {
             command = command.long_about(description);
         }
 
+        if let Some(_) = &self.env_key {
+            todo!();
+        }
+
+        if let Some(_) = &self.env_file {
+            todo!();
+        }
+
         command = command.after_help(format!("(Defined in {})", self.source_file));
 
         command
