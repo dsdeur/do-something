@@ -1,3 +1,7 @@
+use crate::{
+    config::OnConflict,
+    dir::{git_root, resolve_path},
+};
 use anyhow::Result;
 use clap::builder::styling;
 use serde::{Deserialize, Serialize};
@@ -8,13 +12,10 @@ use std::{
     vec,
 };
 
-use crate::{
-    config::OnConflict,
-    dir::{git_root, resolve_path},
-};
-
+/// Configures when a command or group is available to run.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum RootScope {
+    /// The command is always in scope
     Global,
     /// The current path must be inside the git root path
     GitRoot,
@@ -22,40 +23,78 @@ pub enum RootScope {
     Exact,
 }
 
+/// Defining where the command or group is run from, and configure its scope.
+///
+/// - Used to run commands from a different directory.
+/// - Used to limit commands to specific directories.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RootConfig {
     pub path: String,
     pub scope: Option<RootScope>,
 }
 
+/// Allows to flatten groups into their parent namespace
+///
+/// Useful to organize commands without adding extra nesting in the CLI.
+///
+/// For example, if you can't introduce a `ds.json` file in a project, you can define
+/// the commands in a group in your global config:
+/// - Set the root path to the project git root folder, so the commands are run from there.
+/// - Set root scope to `GitRoot` so the commands are only available inside that project.
+/// - Set group mode to Flattened, so the commands are available without the extra step
+///   (e.g. `ds command` instead of `ds group command`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum GroupMode {
     Namespaced,
     Flattened,
 }
 
+/// Configuration for a single command.
+///
+/// There is a lot of overlap with the group configuration,
+/// these override the group settings.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CommandConfig {
+    /// Optional name for the command, used in help messages.
     pub name: Option<String>,
+    /// Optional longer description for the command, used in help messages.
     pub description: Option<String>,
+    /// The command to run.
     pub command: String,
+    /// Optional environment keys (not yet implemented).
     pub envs: Option<Vec<String>>,
+    /// Optional root configuration, to define where the command is run from.
     pub root: Option<RootConfig>,
 }
 
+/// A group of commands, that share common configuration.
+///
+/// This is the top-level structure of a `ds.json` file, and can be nested.
+/// If there are multiple files, they are merged together
+/// (configured in `on_conflict` in global config).
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Group {
+    /// Optional name for the group, used in help messages.
     name: Option<String>,
+    /// Optional longer description for the group, used in help messages.
     description: Option<String>,
+    /// Optional default command for the group, if no sub-command is provided.
+    /// If not provided, it will show help for the group.
     default: Option<String>,
+    /// Commands within the group. Can be commands or sub-groups.
     commands: HashMap<String, CommandDefinition>,
+    /// Optional environment keys (not yet implemented).
     envs: Option<Vec<String>>,
+    /// Optional dotenv files options (not yet implemented).
     dotenv_files: Option<HashMap<String, String>>,
+    /// Optional root configuration, to define where the group is run from.
     root: Option<RootConfig>,
+    /// Optional group mode, to define if it is namespaced or flattened.
     mode: Option<GroupMode>,
 }
 
 impl Group {
+    /// Load a group configuration from a file.
     pub fn from_file(path: impl AsRef<Path>) -> Result<Option<Self>> {
         if !path.as_ref().exists() {
             return Ok(None);
@@ -67,6 +106,7 @@ impl Group {
         Ok(Some(group))
     }
 
+    /// Flatten the group into a list of commands, applying the configuration.
     pub fn flatten(&self, source: &String) -> Result<Commands> {
         let current_dir = std::env::current_dir()?;
         let git_root = git_root();
@@ -89,15 +129,23 @@ impl Group {
     }
 }
 
+/// A command definition in a group commands field.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum CommandDefinition {
+    /// A simple command string.
     Command(String),
+    /// A command with additional configuration.
     CommandConfig(CommandConfig),
+    /// A nested group of commands.
     Group(Group),
 }
 
 impl CommandDefinition {
+    /// Get the root configuration for the command or group,
+    /// falling back to the parent root if not defined.
+    ///
+    /// Resolves the root path to an absolute path (including tilde expansion).
     pub fn get_root(
         &self,
         parent_root: Option<RootConfig>,
@@ -116,6 +164,7 @@ impl CommandDefinition {
         }
     }
 
+    /// Check if the command or group is in scope for the current directory/git root.
     pub fn is_in_scope(
         &self,
         current_dir: impl AsRef<Path>,
@@ -141,6 +190,7 @@ impl CommandDefinition {
         }
     }
 
+    /// Flatten the command or group into a list of commands, applying the configuration.
     pub fn flatten(
         &self,
         parent_key: Vec<String>,
@@ -239,6 +289,11 @@ impl CommandDefinition {
     }
 }
 
+/// Internal representation of a command.
+///
+/// This has all the resolved configuration for a command.
+/// All fields are final, so that the command can be executed directly.
+/// All parent configuration has been applied.
 #[derive(Debug, Clone)]
 pub struct Command {
     pub command: String,
@@ -252,6 +307,7 @@ pub struct Command {
 }
 
 impl Command {
+    /// Get the full command to run, including changing directory if needed.
     pub fn get_command(&self) -> String {
         if let Some(root) = &self.root_path {
             format!("cd {} && {}", root.display(), self.command)
@@ -260,6 +316,7 @@ impl Command {
         }
     }
 
+    /// Convert the command into a Clap command for CLI integration.
     pub fn to_clap_command(&self) -> clap::Command {
         let key = self.key.last().unwrap().clone();
 
@@ -296,16 +353,22 @@ impl Command {
     }
 }
 
+/// A collection of commands in a sorted tree structure.
+/// This is used to turn it into the Clap command structure.
 #[derive(Debug, Clone, Default)]
 struct CommandTree {
     children: BTreeMap<String, CommandTree>,
     command: Option<Command>,
 }
 
+/// The internal representation of processed commands.
+/// - Should have all configuration applied.
+/// - Should not include out-of-scope commands.
 #[derive(Debug, Clone, Default)]
 pub struct Commands(pub Vec<Command>);
 
 impl Commands {
+    /// Merge two Commands collections, handling conflicts based on the configuration.
     pub fn merge(&self, other: Commands, on_conflict: &OnConflict) -> Result<Commands> {
         let mut combined: Vec<Command> = self.0.iter().chain(other.0.iter()).cloned().collect();
         let mut mapped = HashMap::new();
@@ -342,6 +405,7 @@ impl Commands {
         Ok(Commands(res))
     }
 
+    /// Convert the flat list of commands into a tree structure for Clap.
     fn to_tree(&self) -> CommandTree {
         let mut root = CommandTree::default();
 
@@ -361,6 +425,7 @@ impl Commands {
         root
     }
 
+    /// Recursively build Clap commands from the command tree.
     fn build_commands(node: &CommandTree, parent_cmd: clap::Command) -> clap::Command {
         let mut cmd = parent_cmd;
 
@@ -390,6 +455,7 @@ impl Commands {
         cmd
     }
 
+    /// Convert the Commands collection into a Clap command structure.
     pub fn to_clap(&self, name: &str) -> Result<clap::Command> {
         const STYLES: styling::Styles = styling::Styles::styled()
             .header(styling::AnsiColor::Green.on_default().bold())
@@ -406,6 +472,7 @@ impl Commands {
         Ok(Commands::build_commands(&root, app))
     }
 
+    /// Find a command by its path of keys.
     pub fn command_from_path(&self, path: &[String]) -> Option<String> {
         self.0
             .iter()

@@ -7,6 +7,7 @@ use crate::{
 use anyhow::Result;
 use clap;
 
+/// Load and combine commands from configuration files in standard directories
 pub fn load_commands(on_conflict: &OnConflict) -> Result<Commands> {
     let mut dirs = Vec::new();
 
@@ -31,6 +32,7 @@ pub fn load_commands(on_conflict: &OnConflict) -> Result<Commands> {
     Ok(commands)
 }
 
+/// Extract the command path and any extra arguments from the clap matches
 pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String>) {
     let mut path = Vec::new();
     let mut current = matches;
@@ -48,6 +50,7 @@ pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String
     (path, extra_args)
 }
 
+/// Run the CLI application
 pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
     let commands = load_commands(&config.on_conflict)?;
