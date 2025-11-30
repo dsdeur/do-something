@@ -98,20 +98,32 @@ pub enum CommandDefinition {
 }
 
 impl CommandDefinition {
-    pub fn is_in_scope(
+    pub fn get_root(
         &self,
-        current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
-    ) -> Result<bool> {
-        let root = match self {
+        parent_root: Option<RootConfig>,
+    ) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
+        let item_root = match self {
             CommandDefinition::CommandConfig(cmd) => cmd.root.clone(),
             CommandDefinition::Group(group) => group.root.clone(),
             _ => None,
         };
 
-        if let Some(root_config) = root {
-            let target_path = resolve_path(&root_config.path)?;
+        if let Some(root) = item_root.or(parent_root) {
+            let path = resolve_path(&root.path)?;
+            Ok((Some(root), Some(path)))
+        } else {
+            Ok((None, None))
+        }
+    }
 
+    pub fn is_in_scope(
+        &self,
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
+    ) -> Result<bool> {
+        let root = self.get_root(None)?;
+
+        if let (Some(root_config), Some(target_path)) = root {
             match root_config.scope {
                 Some(RootScope::Exact) => Ok(current_dir.as_ref() == target_path),
                 Some(RootScope::GitRoot) => {
@@ -129,45 +141,6 @@ impl CommandDefinition {
         }
     }
 
-    pub fn get_root_config(&self) -> Option<RootConfig> {
-        match self {
-            CommandDefinition::CommandConfig(cmd) => cmd.root.clone(),
-            CommandDefinition::Group(group) => group.root.clone(),
-            _ => None,
-        }
-    }
-
-    pub fn with_root(&self, root: Option<RootConfig>) -> CommandDefinition {
-        match self {
-            CommandDefinition::Command(cmd) => CommandDefinition::CommandConfig(CommandConfig {
-                name: None,
-                description: None,
-                envs: None,
-                command: cmd.clone(),
-                root,
-            }),
-            CommandDefinition::CommandConfig(cmd) => {
-                let mut new_cmd = cmd.clone();
-                new_cmd.root = root;
-                CommandDefinition::CommandConfig(new_cmd)
-            }
-            CommandDefinition::Group(group) => {
-                let mut new_group = group.clone();
-                new_group.root = root;
-                CommandDefinition::Group(new_group)
-            }
-        }
-    }
-
-    pub fn get_root_path(&self) -> Result<Option<PathBuf>> {
-        if let Some(root) = self.get_root_config() {
-            let path = resolve_path(&root.path)?;
-            Ok(Some(path))
-        } else {
-            Ok(None)
-        }
-    }
-
     pub fn flatten(
         &self,
         parent_key: Vec<String>,
@@ -182,15 +155,13 @@ impl CommandDefinition {
             return Ok(Commands(vec![]));
         }
 
-        let item_root = self.get_root_config().or_else(|| parent_root.clone());
-        let with_root = self.with_root(item_root.clone());
-        let path = with_root.get_root_path()?;
+        let (root_config, path) = self.get_root(parent_root)?;
 
         // Create the new key
         let mut new_key = parent_key.clone();
         new_key.push(current_key.clone());
 
-        let res = match &with_root {
+        let res = match &self {
             CommandDefinition::Command(cmd) => {
                 let command = Command {
                     name: None,
@@ -252,7 +223,7 @@ impl CommandDefinition {
                         command_key,
                         curr_key.clone(),
                         source,
-                        item_root.clone(),
+                        root_config.clone(),
                         &current_dir,
                         &git_root,
                     )?;
