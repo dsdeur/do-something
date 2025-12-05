@@ -145,36 +145,6 @@ pub enum CommandDefinition {
     Group(Group),
 }
 
-// #[derive(Clone, Default, Debug)]
-// struct Aliases(Option<Vec<Vec<String>>>);
-
-// impl Aliases {
-//     pub fn from_strings(aliases: &Vec<String>) -> Self {
-//         Aliases(Some(aliases.iter().map(|a| vec![a.clone()]).collect()))
-//     }
-
-//     pub fn combine(&self, other: Option<Vec<String>>) -> Self {
-//         match (self.0.clone(), other) {
-//             (None, None) => Aliases(None),
-//             (None, Some(other)) => Aliases::from_strings(&other),
-//             (Some(current), None) => Aliases(Some(current)),
-//             (Some(current), Some(other)) => {
-//                 let mut combined = Vec::new();
-
-//                 for existing in current {
-//                     for alias in &other {
-//                         let mut other = existing.clone();
-//                         other.push(alias.clone());
-//                         combined.push(other);
-//                     }
-//                 }
-
-//                 Aliases(Some(combined))
-//             }
-//         }
-//     }
-// }
-
 impl CommandDefinition {
     /// Get the root configuration for the command or group,
     /// falling back to the parent root if not defined.

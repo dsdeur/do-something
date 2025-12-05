@@ -1,10 +1,10 @@
-use std::{io::IsTerminal, process::Stdio};
+use std::{env, io::IsTerminal, process::Stdio};
 
 use crate::{
     commands::{Commands, Group},
     config::{self, GlobalConfig},
 };
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use clap;
 
 /// Load and combine commands from configuration files in standard directories
@@ -47,6 +47,15 @@ pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
     let commands = load_commands(&config)?;
     let app = commands.to_clap("DoSomething")?;
+
+    let parts: Vec<String> = env::args().skip(1).collect();
+    println!("Args {:#?}", parts);
+    println!("Commands: {:#?}", commands);
+
+    for command in &commands.0 {
+        println!("{}", &command.key.join(" "));
+    }
+    // Ok(())
 
     let matches = app.get_matches();
     let (path, extra_args) = get_command_path(&matches);
