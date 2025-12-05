@@ -9,6 +9,7 @@ use std::{
     collections::{BTreeMap, HashMap, HashSet},
     fs,
     path::{Path, PathBuf},
+    vec,
 };
 
 /// Configures when a command or group is available to run.
@@ -64,6 +65,8 @@ pub struct CommandConfig {
     pub envs: Option<Vec<String>>,
     /// Optional root configuration, to define where the command is run from.
     pub root: Option<RootConfig>,
+    /// Optional aliases for the command, used to run it with different names.
+    pub aliases: Option<Vec<String>>,
 }
 
 /// A group of commands, that share common configuration.
@@ -90,6 +93,8 @@ pub struct Group {
     root: Option<RootConfig>,
     /// Optional group mode, to define if it is namespaced or flattened.
     mode: Option<GroupMode>,
+    /// Optional aliases for the group, used to run it with different names.
+    aliases: Option<Vec<String>>,
 }
 
 impl Group {
@@ -139,6 +144,36 @@ pub enum CommandDefinition {
     /// A nested group of commands.
     Group(Group),
 }
+
+// #[derive(Clone, Default, Debug)]
+// struct Aliases(Option<Vec<Vec<String>>>);
+
+// impl Aliases {
+//     pub fn from_strings(aliases: &Vec<String>) -> Self {
+//         Aliases(Some(aliases.iter().map(|a| vec![a.clone()]).collect()))
+//     }
+
+//     pub fn combine(&self, other: Option<Vec<String>>) -> Self {
+//         match (self.0.clone(), other) {
+//             (None, None) => Aliases(None),
+//             (None, Some(other)) => Aliases::from_strings(&other),
+//             (Some(current), None) => Aliases(Some(current)),
+//             (Some(current), Some(other)) => {
+//                 let mut combined = Vec::new();
+
+//                 for existing in current {
+//                     for alias in &other {
+//                         let mut other = existing.clone();
+//                         other.push(alias.clone());
+//                         combined.push(other);
+//                     }
+//                 }
+
+//                 Aliases(Some(combined))
+//             }
+//         }
+//     }
+// }
 
 impl CommandDefinition {
     /// Get the root configuration for the command or group,
@@ -221,6 +256,7 @@ impl CommandDefinition {
                     root_path: path,
                     source_file: source.to_string(),
                     key: new_key.clone(),
+                    aliases: None,
                 };
 
                 vec![command]
@@ -235,6 +271,7 @@ impl CommandDefinition {
                     root_path: path,
                     source_file: source.to_string(),
                     key: new_key.clone(),
+                    aliases: cmd.aliases.clone(),
                 };
 
                 vec![command]
@@ -254,6 +291,7 @@ impl CommandDefinition {
                         root_path: path.clone(),
                         source_file: source.to_string(),
                         key: new_key.clone(),
+                        aliases: group.aliases.clone(),
                     };
 
                     results.push(command);
@@ -311,6 +349,8 @@ pub struct Command {
     pub source_file: String,
     /// The key path representing the command's location in the hierarchy.
     pub key: Vec<String>,
+    /// Optional aliases for the command, used to run it with different names.
+    pub aliases: Option<Vec<String>>,
 }
 
 impl Command {
@@ -336,6 +376,12 @@ impl Command {
                     .allow_hyphen_values(true),
             )
             .flatten_help(true);
+
+        if let Some(aliases) = &self.aliases {
+            for alias in aliases {
+                command = command.visible_alias(alias);
+            }
+        }
 
         if let Some(name) = &self.name {
             command = command.about(name);
