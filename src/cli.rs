@@ -1,31 +1,23 @@
-use std::{env, io::IsTerminal, process::Stdio};
+use std::{io::IsTerminal, process::Stdio};
 
 use crate::{
     commands::{Commands, Group},
-    config::{self, OnConflict, get_config_dir},
+    config::{self, GlobalConfig},
 };
 use anyhow::Result;
 use clap;
 
 /// Load and combine commands from configuration files in standard directories
-pub fn load_commands(on_conflict: &OnConflict) -> Result<Commands> {
-    let mut dirs = Vec::new();
-
-    if let Some(dir) = get_config_dir() {
-        dirs.push(dir);
-    }
-
-    if let Ok(dir) = env::current_dir() {
-        dirs.push(dir);
-    }
-
+pub fn load_commands(config: &GlobalConfig) -> Result<Commands> {
     let mut commands = Commands::default();
+    let paths = config.get_command_paths()?;
 
-    for dir in &dirs {
-        let path = dir.join("ds.json");
+    println!("Loading commands from paths: {:?}", paths);
+
+    for path in &paths {
         if let Some(group) = Group::from_file(&path)? {
             let group_commands = group.flatten(&path.display().to_string())?;
-            commands = commands.merge(group_commands, on_conflict)?;
+            commands = commands.merge(group_commands, &config.on_conflict)?;
         }
     }
 
@@ -53,7 +45,7 @@ pub fn get_command_path(matches: &clap::ArgMatches) -> (Vec<String>, Vec<&String
 /// Run the CLI application
 pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
-    let commands = load_commands(&config.on_conflict)?;
+    let commands = load_commands(&config)?;
     let app = commands.to_clap("DoSomething")?;
 
     let matches = app.get_matches();
