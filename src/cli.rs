@@ -12,11 +12,17 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Comman
     let mut commands = Commands::default();
     let paths = config.get_command_paths()?;
 
+    println!("\n\nMatches:");
     for path in &paths {
         if let Some(group) = Group::from_file(&path)? {
-            let matches = group.get_matches(matches.clone());
+            let matches = group.get_matches(matches.clone(), true);
+            println!(
+                "Found {} matches for {}:\n\n",
+                matches.len(),
+                path.display()
+            );
             for m in matches {
-                println!("{:#?}", m);
+                println!("{:#?}", m.1);
             }
             let group_commands = group.flatten(&path.display().to_string())?;
             commands = commands.merge(group_commands, &config.on_conflict)?;
@@ -54,7 +60,7 @@ pub fn run() -> Result<()> {
     let app = commands.to_clap("DoSomething")?;
 
     for command in &commands.0 {
-        println!("{}", &command.key.join(" "));
+        // println!("{}", &command.key.join(" "));
     }
     Ok(())
 
