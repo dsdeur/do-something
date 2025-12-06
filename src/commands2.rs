@@ -1,8 +1,12 @@
 use crate::commands::{CommandDefinition, Group};
 
-fn get_commmand_keys<'a>(
+/// Get the command keys for a given command definition
+/// - This function collects the keys from the command and its parent groups,
+/// - Resolves aliases if they exist
+/// - Returns a vector of vectors, where each represents one level of aliases
+fn get_command_keys<'a>(
     keys: &[&'a str],
-    command: &CommandDefinition,
+    command: &'a CommandDefinition,
     parents: &[&'a Group],
 ) -> Vec<Vec<&'a str>> {
     // let mut all_keys = Vec::new();
@@ -56,9 +60,14 @@ fn get_commmand_keys<'a>(
         }
     }
 
+    // Combine the parent keys with the command keys
+    parent_keys.push(command_keys);
     parent_keys
 }
 
+/// Calculate the match score for a command based on the provided matches
+/// - The score is the number of levels that match
+/// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
 fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nested: bool) -> usize {
     let mut score = 0;
 
@@ -86,7 +95,7 @@ fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nest
 }
 
 impl Group {
-    pub fn walk_tree<'a>(
+    fn walk_tree<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
@@ -108,6 +117,11 @@ impl Group {
         parents.pop();
     }
 
+    /// Walk through all commands in the group and its subgroups
+    /// - Calls `on_command` for each command with the current path, command definition, and parent groups
+    /// - The path is a vector of strings representing the command keys
+    /// - The command definition is the current command being processed
+    /// - The parent groups are the groups that lead to the current command
     pub fn walk_commands<'a>(
         &'a self,
         on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]),
@@ -117,6 +131,11 @@ impl Group {
         self.walk_tree(&mut keys, &mut parents, on_command);
     }
 
+    /// Get the commands that match the provided matches
+    /// - `matches` is a vector of strings representing the command path
+    /// - `include_nested` determines if nested commands should be included in the match
+    /// - Returns a vector of tuples containing the match score, command keys, command definition,
+    ///   and parent groups for each matching command
     pub fn get_matches(
         &self,
         matches: Vec<&str>,
@@ -125,16 +144,13 @@ impl Group {
         let mut commands = Vec::new();
 
         self.walk_commands(&mut |key, cmd, parents| {
-            let command_keys = get_commmand_keys(key, cmd, parents);
+            let command_keys = get_command_keys(key, cmd, parents);
             let score = get_match_score(&command_keys, &matches, include_nested);
 
             if score > 0 {
                 commands.push((
                     score,
-                    key.to_vec()
-                        .iter()
-                        .map(|s| s.to_string())
-                        .collect::<Vec<String>>(),
+                    key.iter().map(|s| s.to_string()).collect(),
                     cmd.clone(),
                     parents.iter().copied().collect(),
                 ));
