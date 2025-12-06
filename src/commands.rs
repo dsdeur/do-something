@@ -64,78 +64,6 @@ pub struct CommandConfig {
     pub aliases: Option<Vec<String>>,
 }
 
-/// Get the command keys for a given command definition
-/// - This function collects the keys from the command and its parent groups,
-/// - Resolves aliases if they exist
-/// - Returns a vector of vectors, where each represents one level of aliases
-fn get_command_keys<'a>(
-    keys: &[&'a str],
-    command: &'a CommandDefinition,
-    parents: &[&'a Group],
-) -> Vec<Vec<&'a str>> {
-    let mut parent_keys = Vec::with_capacity(parents.len() + 1);
-
-    // Collect all parent keys
-    for (i, group) in parents.iter().enumerate() {
-        if i == 0 {
-            continue;
-        }
-
-        let key = keys[i - 1];
-
-        match group.mode {
-            // Only collect group aliases if the group is namespaced (default)
-            Some(GroupMode::Namespaced) | None => {
-                if let Some(aliases) = &group.aliases {
-                    let mut keys = Vec::with_capacity(1 + aliases.len());
-
-                    // Add the group key, and its aliases
-                    keys.push(key);
-
-                    for alias in aliases {
-                        keys.push(alias);
-                    }
-
-                    // Add to the parent keys
-                    parent_keys.push(keys);
-                } else {
-                    parent_keys.push(vec![key]);
-                }
-            }
-            Some(GroupMode::Flattened) => {
-                continue;
-            }
-        }
-    }
-
-    // Add the command key
-    let last_key = keys.last().unwrap_or(&"");
-    let mut command_keys = vec![*last_key];
-
-    // Add the command aliases if they exist
-    match command {
-        CommandDefinition::Command(_) => (),
-        CommandDefinition::CommandConfig(command) => {
-            if let Some(aliases) = &command.aliases {
-                for alias in aliases {
-                    command_keys.push(alias);
-                }
-            }
-        }
-        CommandDefinition::Group(group) => {
-            if let Some(aliases) = &group.aliases {
-                for alias in aliases {
-                    command_keys.push(alias);
-                }
-            }
-        }
-    }
-
-    // Combine the parent keys with the command keys
-    parent_keys.push(command_keys);
-    parent_keys
-}
-
 /// Calculate the match score for a command based on the provided matches
 /// - The score is the number of levels that match
 /// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
@@ -301,7 +229,7 @@ impl Group {
             }
 
             // Calculate the match score
-            let command_keys = get_command_keys(key, cmd, parents);
+            let command_keys = cmd.get_keys(key, parents);
             let score = get_match_score(&command_keys, &matches, include_nested);
 
             if score > 0 {
@@ -397,5 +325,73 @@ impl CommandDefinition {
         } else {
             Ok(true)
         }
+    }
+
+    /// Get the command keys for a given command definition
+    /// - This function collects the keys from the command and its parent groups,
+    /// - Resolves aliases if they exist
+    /// - Returns a vector of vectors, where each represents one level of aliases
+    fn get_keys<'a>(&'a self, keys: &[&'a str], parents: &[&'a Group]) -> Vec<Vec<&'a str>> {
+        let mut parent_keys = Vec::with_capacity(parents.len() + 1);
+
+        // Collect all parent keys
+        for (i, group) in parents.iter().enumerate() {
+            if i == 0 {
+                continue;
+            }
+
+            let key = keys[i - 1];
+
+            match group.mode {
+                // Only collect group aliases if the group is namespaced (default)
+                Some(GroupMode::Namespaced) | None => {
+                    if let Some(aliases) = &group.aliases {
+                        let mut keys = Vec::with_capacity(1 + aliases.len());
+
+                        // Add the group key, and its aliases
+                        keys.push(key);
+
+                        for alias in aliases {
+                            keys.push(alias);
+                        }
+
+                        // Add to the parent keys
+                        parent_keys.push(keys);
+                    } else {
+                        parent_keys.push(vec![key]);
+                    }
+                }
+                Some(GroupMode::Flattened) => {
+                    continue;
+                }
+            }
+        }
+
+        // Add the command key
+        let last_key = keys.last().unwrap_or(&"");
+        let mut command_keys = vec![*last_key];
+
+        // Add the command aliases if they exist
+        match self {
+            CommandDefinition::Command(_) => (),
+            CommandDefinition::CommandConfig(command) => {
+                if let Some(aliases) = &command.aliases {
+                    for alias in aliases {
+                        command_keys.push(alias);
+                    }
+                }
+            }
+            CommandDefinition::Group(group) => {
+                if let Some(aliases) = &group.aliases {
+                    for alias in aliases {
+                        command_keys.push(alias);
+                    }
+                }
+            }
+        }
+
+        // Combine the parent keys with the command keys
+        parent_keys.push(command_keys);
+        parent_keys
     }
 }
