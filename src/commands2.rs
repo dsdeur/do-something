@@ -9,8 +9,7 @@ fn get_command_keys<'a>(
     command: &'a CommandDefinition,
     parents: &[&'a Group],
 ) -> Vec<Vec<&'a str>> {
-    // let mut all_keys = Vec::new();
-    let mut parent_keys = Vec::new();
+    let mut parent_keys = Vec::with_capacity(parents.len() + 1);
 
     // Collect all parent keys
     for (i, group) in parents.iter().enumerate() {
@@ -19,17 +18,18 @@ fn get_command_keys<'a>(
         match group.mode {
             // Only collect group aliases if the group is namespaced (default)
             Some(crate::commands::GroupMode::Namespaced) | None => {
-                // Add the main key of the group
-                let mut keys = vec![key];
-
-                // Add the aliases if they exist
                 if let Some(aliases) = &group.aliases {
-                    for alias in aliases {
-                        keys.push(alias);
-                    }
-                }
+                    let mut keys = Vec::with_capacity(1 + aliases.len());
 
-                parent_keys.push(keys);
+                    // Add the group key, and its aliases
+                    keys.push(key);
+                    keys.extend(aliases.iter().map(|s| s.as_str()));
+
+                    // Add to the parent keys
+                    parent_keys.push(keys);
+                } else {
+                    parent_keys.push(vec![key]);
+                }
             }
             Some(crate::commands::GroupMode::Flattened) => {
                 continue;
@@ -86,8 +86,8 @@ fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nest
         }
     }
 
+    // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
     if !include_nested && command_keys.len() > matches.len() {
-        // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
         return 0;
     }
 
