@@ -116,7 +116,7 @@ pub struct Group {
     /// If not provided, it will show help for the group.
     pub default: Option<String>,
     /// Commands within the group. Can be commands or sub-groups.
-    pub commands: BTreeMap<String, CommandDefinition>,
+    pub commands: BTreeMap<String, Command>,
     /// Optional environment keys (not yet implemented).
     pub envs: Option<Vec<String>>,
     /// Optional dotenv files options (not yet implemented).
@@ -146,7 +146,7 @@ impl Group {
         &'a self,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
-        on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]) -> Walk,
+        on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
     ) -> Walk {
         parents.push(self);
 
@@ -168,7 +168,7 @@ impl Group {
                 }
             };
 
-            if let CommandDefinition::Group(group) = command {
+            if let Command::Group(group) = command {
                 // If the command is a group, walk through its tree
                 // If the walk returns Stop, we stop processing
                 if group.walk_tree(keys, parents, on_command) == Walk::Stop {
@@ -192,7 +192,7 @@ impl Group {
     /// - The parent groups are the groups that lead to the current command
     pub fn walk_commands<'a>(
         &'a self,
-        on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]) -> Walk,
+        on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
     ) {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
@@ -210,7 +210,7 @@ impl Group {
         include_nested: bool,
         current_dir: impl AsRef<Path>,
         git_root: &Option<PathBuf>,
-    ) -> Result<Vec<(usize, Vec<String>, CommandDefinition, Vec<&Group>)>> {
+    ) -> Result<Vec<(usize, Vec<String>, Command, Vec<&Group>)>> {
         let mut commands = Vec::new();
         let mut err = None;
 
@@ -269,7 +269,7 @@ impl Group {
 /// A command definition in a group commands field.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
-pub enum CommandDefinition {
+pub enum Command {
     /// A simple command string.
     Command(String),
     /// A command with additional configuration.
@@ -278,7 +278,7 @@ pub enum CommandDefinition {
     Group(Group),
 }
 
-impl CommandDefinition {
+impl Command {
     /// Get the root configuration for the command or group,
     /// falling back to the parent root if not defined.
     ///
@@ -288,8 +288,8 @@ impl CommandDefinition {
         parent_root: Option<RootConfig>,
     ) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
         let item_root = match self {
-            CommandDefinition::CommandConfig(cmd) => cmd.root.clone(),
-            CommandDefinition::Group(group) => group.root.clone(),
+            Command::CommandConfig(cmd) => cmd.root.clone(),
+            Command::Group(group) => group.root.clone(),
             _ => None,
         };
 
@@ -373,15 +373,15 @@ impl CommandDefinition {
 
         // Add the command aliases if they exist
         match self {
-            CommandDefinition::Command(_) => (),
-            CommandDefinition::CommandConfig(command) => {
+            Command::Command(_) => (),
+            Command::CommandConfig(command) => {
                 if let Some(aliases) = &command.aliases {
                     for alias in aliases {
                         command_keys.push(alias);
                     }
                 }
             }
-            CommandDefinition::Group(group) => {
+            Command::Group(group) => {
                 if let Some(aliases) = &group.aliases {
                     for alias in aliases {
                         command_keys.push(alias);

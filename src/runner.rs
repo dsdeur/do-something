@@ -1,5 +1,5 @@
 use crate::{
-    commands::{CommandConfig, CommandDefinition, Group},
+    commands::{Command, CommandConfig, Group},
     dir::resolve_path,
 };
 use anyhow::Result;
@@ -7,7 +7,7 @@ use shell_escape::escape;
 use std::{
     io::IsTerminal,
     path::PathBuf,
-    process::{Command, Stdio},
+    process::{Command as ProcessCommand, Stdio},
 };
 
 /// Get the root path and configuration for a command
@@ -17,12 +17,12 @@ use std::{
 /// This one is different from CommandDefinition::get_command_root, as it looks
 /// at all parents, not just the immediate parent group.
 pub fn get_command_root_path<'a>(
-    command: &'a CommandDefinition,
+    command: &'a Command,
     parents: &[&'a Group],
 ) -> Result<Option<PathBuf>> {
     let command_root = match command {
-        CommandDefinition::CommandConfig(cmd) => cmd.root.as_ref(),
-        CommandDefinition::Group(group) => group.root.as_ref(),
+        Command::CommandConfig(cmd) => cmd.root.as_ref(),
+        Command::Group(group) => group.root.as_ref(),
         _ => None,
     };
 
@@ -34,7 +34,11 @@ pub fn get_command_root_path<'a>(
     }
 }
 
-fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> Result<Command> {
+fn create_command(
+    command: &str,
+    work_dir: Option<&PathBuf>,
+    args: &[&str],
+) -> Result<ProcessCommand> {
     let mut command_str = command.to_string();
 
     for arg in args {
@@ -42,7 +46,7 @@ fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> R
         command_str.push_str(&escape((*arg).into()));
     }
 
-    let mut cmd = std::process::Command::new("sh");
+    let mut cmd = ProcessCommand::new("sh");
 
     cmd.arg("-c");
     cmd.arg(command_str);
@@ -68,7 +72,7 @@ fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> R
 /// - `Help` is a help group that provides information about commands
 #[derive(Debug)]
 pub enum Runner {
-    Command(Command),
+    Command(ProcessCommand),
     Help(Group),
 }
 
@@ -76,24 +80,18 @@ pub enum Runner {
 /// - Returns a `Runner` enum that can either be a command to run or a help group
 /// - If a group has a default command, it will create a command runner for that
 /// - It handles root paths and arguments
-pub fn get_runner(
-    command: &CommandDefinition,
-    parents: &[&Group],
-    args: &[&str],
-) -> Result<Runner> {
+pub fn get_runner(command: &Command, parents: &[&Group], args: &[&str]) -> Result<Runner> {
     let path = get_command_root_path(command, parents)?;
 
     let runner = match command {
-        CommandDefinition::Group(Group {
+        Command::Group(Group {
             default: Some(cmd), ..
         }) => Runner::Command(create_command(cmd, path.as_ref(), args)?),
-        CommandDefinition::Command(cmd) => {
+        Command::Command(cmd) => Runner::Command(create_command(cmd, path.as_ref(), args)?),
+        Command::CommandConfig(CommandConfig { command: cmd, .. }) => {
             Runner::Command(create_command(cmd, path.as_ref(), args)?)
         }
-        CommandDefinition::CommandConfig(CommandConfig { command: cmd, .. }) => {
-            Runner::Command(create_command(cmd, path.as_ref(), args)?)
-        }
-        CommandDefinition::Group(group) => Runner::Help(group.clone()),
+        Command::Group(group) => Runner::Help(group.clone()),
     };
 
     Ok(runner)
