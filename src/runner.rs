@@ -72,7 +72,7 @@ fn create_command(
 /// - `Help` is a help group that provides information about commands
 #[derive(Debug)]
 pub enum Runner {
-    Command(ProcessCommand),
+    Command(String, ProcessCommand),
     Help(Vec<String>, Group),
 }
 
@@ -91,10 +91,12 @@ pub fn get_runner(
     let runner = match command {
         Command::Group(Group {
             default: Some(cmd), ..
-        }) => Runner::Command(create_command(cmd, path.as_ref(), args)?),
-        Command::Command(cmd) => Runner::Command(create_command(cmd, path.as_ref(), args)?),
+        }) => Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), args)?),
+        Command::Command(cmd) => {
+            Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), args)?)
+        }
         Command::CommandConfig(CommandConfig { command: cmd, .. }) => {
-            Runner::Command(create_command(cmd, path.as_ref(), args)?)
+            Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), args)?)
         }
         Command::Group(group) => Runner::Help(keys, group.clone()),
     };

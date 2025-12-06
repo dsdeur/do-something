@@ -1,9 +1,8 @@
+use crate::dir::git_root;
 use anyhow::Result;
 use glob::glob;
 use serde::{Deserialize, Serialize};
-use std::{env, path::PathBuf};
-
-use crate::dir::git_root;
+use std::{collections::HashSet, env, path::PathBuf};
 
 /// Configure how to handle commands with the same key
 #[derive(Debug, Serialize, Deserialize)]
@@ -122,9 +121,16 @@ impl GlobalConfig {
             paths.push(dir.join("ds.json"));
         }
 
-        // Remove duplicates
-        paths.dedup();
+        // Remove duplicates while preserving order
+        let mut seen = HashSet::new();
+        let mut deduped = Vec::new();
 
-        Ok(paths)
+        for p in paths {
+            if seen.insert(p.clone()) {
+                deduped.push(p);
+            }
+        }
+
+        Ok(deduped)
     }
 }

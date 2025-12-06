@@ -6,6 +6,7 @@ use crate::{
     tui::help::print_lines,
 };
 use anyhow::Result;
+use crossterm::style::Stylize;
 use std::env;
 
 /// Load the config, then the command files, and match the command
@@ -109,8 +110,8 @@ pub fn run() -> Result<()> {
 
     // Execute the runner
     match runner {
-        Runner::Command(mut cmd) => {
-            println!("Running command: {:?}", cmd);
+        Runner::Command(command, mut cmd) => {
+            println!("{}", command.dim());
             let status = cmd
                 .spawn()
                 .expect("Failed to spawn command")
