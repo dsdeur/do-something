@@ -7,8 +7,8 @@ use crate::{
 use anyhow::Result;
 use std::env;
 
-/// Load and combine commands from configuration files in standard directories
-pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option<Runner>> {
+/// Load the config, then the command files, and match the command
+pub fn match_command(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option<Runner>> {
     let paths = config.get_command_paths()?;
 
     // For scoping, get the current directory and git root
@@ -77,7 +77,7 @@ pub fn run() -> Result<()> {
     let parts: Vec<String> = env::args().skip(1).collect();
 
     // Get the runner based on the provided arguments
-    let runner = load_commands(&config, parts.iter().map(|s| s.as_str()).collect())
+    let runner = match_command(&config, parts.iter().map(|s| s.as_str()).collect())
         .unwrap_or(None)
         .ok_or(anyhow::anyhow!(
             "No command found matching the provided arguments"
