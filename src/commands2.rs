@@ -1,6 +1,6 @@
 use std::{
     io::IsTerminal,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::{Command, Stdio},
 };
 
@@ -106,10 +106,16 @@ fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nest
     score
 }
 
-pub fn get_command_root<'a>(
+/// Get the root path and configuration for a command
+/// - Returns a tuple of the root configuration and the resolved path
+/// - Looks at the command first, then at the parent groups
+///
+/// This one is different from CommandDefinition::get_command_root, as it looks
+/// at all parents, not just the immediate parent group.
+pub fn get_command_root_path<'a>(
     command: &'a CommandDefinition,
     parents: &[&'a Group],
-) -> Result<(Option<&'a RootConfig>, Option<PathBuf>)> {
+) -> Result<Option<PathBuf>> {
     let command_root = match command {
         CommandDefinition::CommandConfig(cmd) => cmd.root.as_ref(),
         CommandDefinition::Group(group) => group.root.as_ref(),
@@ -118,15 +124,10 @@ pub fn get_command_root<'a>(
 
     if let Some(root) = command_root.or(parents.iter().rev().find_map(|g| g.root.as_ref())) {
         let path = resolve_path(&root.path)?;
-        Ok((Some(root), Some(path)))
+        Ok(Some(path))
     } else {
-        Ok((None, None))
+        Ok(None)
     }
-}
-
-pub enum Runner<'a> {
-    Command(Command),
-    Help(&'a Group),
 }
 
 fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> Result<Command> {
@@ -158,12 +159,24 @@ fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> R
     Ok(cmd)
 }
 
-pub fn run_command<'a>(
+/// Enum representing the type of command runner
+/// - `Command` is a command to run
+/// - `Help` is a help group that provides information about commands
+pub enum Runner<'a> {
+    Command(Command),
+    Help(&'a Group),
+}
+
+/// Get the command runner for a given command definition
+/// - Returns a `Runner` enum that can either be a command to run or a help group
+/// - If a group has a default command, it will create a command runner for that
+/// - It handles root paths and arguments
+pub fn get_runner<'a>(
     command: &'a CommandDefinition,
     parents: &[&Group],
     args: &[&str],
 ) -> Result<Runner<'a>> {
-    let (root, path) = get_command_root(command, parents)?;
+    let path = get_command_root_path(command, parents)?;
 
     let runner = match command {
         CommandDefinition::Group(Group {
@@ -181,27 +194,55 @@ pub fn run_command<'a>(
     Ok(runner)
 }
 
+#[derive(PartialEq, Eq)]
+pub enum Walk {
+    Continue,
+    Skip,
+    Stop,
+}
+
 impl Group {
     fn walk_tree<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
-        on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]),
-    ) {
+        on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]) -> Walk,
+    ) -> Walk {
         parents.push(self);
 
         for (key, command) in self.commands.iter() {
             keys.push(key);
-            on_command(&keys, command, parents);
+
+            match on_command(&keys, command, parents) {
+                Walk::Continue => (),
+                // Skip the current command, meaning don't process the group
+                Walk::Skip => {
+                    keys.pop();
+                    continue;
+                }
+                // Stop the walk, meaning don't process any more commands
+                Walk::Stop => {
+                    keys.pop();
+                    parents.pop();
+                    return Walk::Stop;
+                }
+            };
 
             if let CommandDefinition::Group(group) = command {
-                group.walk_tree(keys, parents, on_command);
+                // If the command is a group, walk through its tree
+                // If the walk returns Stop, we stop processing
+                if group.walk_tree(keys, parents, on_command) == Walk::Stop {
+                    keys.pop();
+                    parents.pop();
+                    return Walk::Stop;
+                }
             }
 
             keys.pop();
         }
 
         parents.pop();
+        Walk::Continue
     }
 
     /// Walk through all commands in the group and its subgroups
@@ -211,7 +252,7 @@ impl Group {
     /// - The parent groups are the groups that lead to the current command
     pub fn walk_commands<'a>(
         &'a self,
-        on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]),
+        on_command: &mut dyn FnMut(&[&str], &CommandDefinition, &[&'a Group]) -> Walk,
     ) {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
@@ -227,10 +268,27 @@ impl Group {
         &self,
         matches: Vec<&str>,
         include_nested: bool,
-    ) -> Vec<(usize, Vec<String>, CommandDefinition, Vec<&Group>)> {
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
+    ) -> Result<Vec<(usize, Vec<String>, CommandDefinition, Vec<&Group>)>> {
         let mut commands = Vec::new();
+        let mut err = None;
 
         self.walk_commands(&mut |key, cmd, parents| {
+            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
+
+            // If the command/group is not in scope, we skip it early to avoid unnecessary processing
+            match is_in_scope {
+                Err(_) => {
+                    // Store the error and stop processing
+                    err = Some(anyhow::anyhow!("Command {} is not in scope", key.join(" ")));
+                    return Walk::Stop;
+                }
+                Ok(false) => return Walk::Skip,
+                Ok(true) => {}
+            }
+
+            // Calculate the match score
             let command_keys = get_command_keys(key, cmd, parents);
             let score = get_match_score(&command_keys, &matches, include_nested);
 
@@ -242,7 +300,14 @@ impl Group {
                     parents.iter().copied().collect(),
                 ));
             }
+
+            Walk::Continue
         });
+
+        // If there was an error, return it
+        if let Some(err) = err {
+            return Err(err);
+        }
 
         // Determine the maximum depth of the matching commands
         let max_depth = commands
@@ -252,9 +317,11 @@ impl Group {
             .unwrap_or(0);
 
         // Filter the most deeply matching commands
-        commands
+        let res = commands
             .into_iter()
             .filter(|(score, _, _, _)| *score == max_depth)
-            .collect()
+            .collect();
+
+        Ok(res)
     }
 }

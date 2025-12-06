@@ -150,7 +150,7 @@ impl CommandDefinition {
     /// falling back to the parent root if not defined.
     ///
     /// Resolves the root path to an absolute path (including tilde expansion).
-    pub fn get_root(
+    fn get_root_for_scope(
         &self,
         parent_root: Option<RootConfig>,
     ) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
@@ -174,7 +174,7 @@ impl CommandDefinition {
         current_dir: impl AsRef<Path>,
         git_root: &Option<PathBuf>,
     ) -> Result<bool> {
-        let root = self.get_root(None)?;
+        let root = self.get_root_for_scope(None)?;
 
         if let (Some(root_config), Some(target_path)) = root {
             match root_config.scope {
@@ -209,7 +209,7 @@ impl CommandDefinition {
             return Ok(Commands(vec![]));
         }
 
-        let (root_config, path) = self.get_root(parent_root)?;
+        let (root_config, path) = self.get_root_for_scope(parent_root)?;
 
         // Create the new key
         let mut new_key = parent_key.clone();
