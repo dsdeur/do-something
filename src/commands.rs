@@ -136,8 +136,11 @@ impl Group {
             return Ok(None);
         }
 
-        let content = fs::read_to_string(path)?;
-        let group: Group = serde_json::from_str(&content)?;
+        let content = fs::read_to_string(&path)?;
+        let mut group: Group = serde_json::from_str(&content)?;
+
+        // Set path as name
+        group.name = Some(path.as_ref().to_string_lossy().to_string());
 
         Ok(Some(group))
     }

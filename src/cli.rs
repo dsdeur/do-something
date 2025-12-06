@@ -8,23 +8,15 @@ use anyhow::Result;
 use std::env;
 
 /// Load the config, then the command files, and match the command
-pub fn match_command(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option<Runner>> {
-    let paths = config.get_command_paths()?;
-
+pub fn match_command(
+    config: &GlobalConfig,
+    matches: Vec<&str>,
+    groups: &Vec<Group>,
+) -> Result<Option<Runner>> {
     // For scoping, get the current directory and git root
     let current_dir = std::env::current_dir()?;
+
     let git_root = git_root();
-
-    // Have to get the groups first, as otherwise having borrowing trouble
-    // We reverse the paths to get the most specific ones first,
-    // as in override mode we want the last one to win
-    let mut groups = Vec::new();
-    for path in paths.iter().rev() {
-        if let Some(group) = Group::from_file(&path)? {
-            groups.push(group);
-        }
-    }
-
     // Collect the matches
     let mut results = Vec::new();
     for group in groups.iter() {
@@ -63,21 +55,32 @@ pub fn match_command(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
             .map(|s| *s)
             .collect::<Vec<_>>();
 
-        get_runner(command, parents, &extra_args)
+        get_runner(keys.clone(), command, parents, &extra_args)
     })
     .transpose()
 }
 
 /// Run the CLI application
 pub fn run() -> Result<()> {
-    // Load the global configuration
-    let config = config::GlobalConfig::load()?;
-
     // Get the command line arguments, skipping the first one (the program name)
     let parts: Vec<String> = env::args().skip(1).collect();
 
+    // Load the global configuration
+    let config = config::GlobalConfig::load()?;
+    let paths = config.get_command_paths()?;
+
+    // Have to get the groups first, as otherwise having borrowing trouble
+    // We reverse the paths to get the most specific ones first,
+    // as in override mode we want the last one to win
+    let mut groups = Vec::new();
+    for path in paths.iter().rev() {
+        if let Some(group) = Group::from_file(&path)? {
+            groups.push(group);
+        }
+    }
+
     // Get the runner based on the provided arguments
-    let runner = match_command(&config, parts.iter().map(|s| s.as_str()).collect())
+    let runner = match_command(&config, parts.iter().map(|s| s.as_str()).collect(), &groups)
         .unwrap_or(None)
         .ok_or(anyhow::anyhow!(
             "No command found matching the provided arguments"
@@ -95,11 +98,9 @@ pub fn run() -> Result<()> {
 
             std::process::exit(status.code().unwrap_or(1));
         }
-        Runner::Help(group) => {
-            return Err(anyhow::anyhow!(
-                "Help requested for group: {:?}",
-                group.name
-            ));
+        Runner::Help(keys, group) => {
+            group.print_group_help(keys, None)?;
+            std::process::exit(0);
         }
     }
 }

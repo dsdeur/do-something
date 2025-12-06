@@ -73,14 +73,19 @@ fn create_command(
 #[derive(Debug)]
 pub enum Runner {
     Command(ProcessCommand),
-    Help(Group),
+    Help(Vec<String>, Group),
 }
 
 /// Get the command runner for a given command definition
 /// - Returns a `Runner` enum that can either be a command to run or a help group
 /// - If a group has a default command, it will create a command runner for that
 /// - It handles root paths and arguments
-pub fn get_runner(command: &Command, parents: &[&Group], args: &[&str]) -> Result<Runner> {
+pub fn get_runner(
+    keys: Vec<String>,
+    command: &Command,
+    parents: &[&Group],
+    args: &[&str],
+) -> Result<Runner> {
     let path = get_command_root_path(command, parents)?;
 
     let runner = match command {
@@ -91,7 +96,7 @@ pub fn get_runner(command: &Command, parents: &[&Group], args: &[&str]) -> Resul
         Command::CommandConfig(CommandConfig { command: cmd, .. }) => {
             Runner::Command(create_command(cmd, path.as_ref(), args)?)
         }
-        Command::Group(group) => Runner::Help(group.clone()),
+        Command::Group(group) => Runner::Help(keys, group.clone()),
     };
 
     Ok(runner)
