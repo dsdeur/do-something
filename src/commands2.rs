@@ -8,7 +8,7 @@ use anyhow::Result;
 use shell_escape::escape;
 
 use crate::{
-    commands::{CommandConfig, CommandDefinition, Group, GroupMode, RootConfig},
+    commands::{CommandConfig, CommandDefinition, Group, GroupMode},
     dir::resolve_path,
 };
 
@@ -25,21 +25,35 @@ fn get_command_keys<'a>(
 
     // Collect all parent keys
     for (i, group) in parents.iter().enumerate() {
-        let key = keys[i];
+        if i == 0 {
+            continue;
+        }
+
+        let key = keys[i - 1];
+
+        println!(
+            "Processing, parent: {:?} group: {}, key: {}",
+            parent_keys, i, key
+        );
 
         match group.mode {
             // Only collect group aliases if the group is namespaced (default)
             Some(GroupMode::Namespaced) | None => {
                 if let Some(aliases) = &group.aliases {
+                    println!("Group has aliases: {:?}", aliases);
                     let mut keys = Vec::with_capacity(1 + aliases.len());
 
                     // Add the group key, and its aliases
                     keys.push(key);
-                    keys.extend(aliases.iter().map(|s| s.as_str()));
+
+                    for alias in aliases {
+                        keys.push(alias);
+                    }
 
                     // Add to the parent keys
                     parent_keys.push(keys);
                 } else {
+                    println!("Group has no aliases, using key: {}", key);
                     parent_keys.push(vec![key]);
                 }
             }
@@ -100,6 +114,11 @@ fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nest
 
     // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
     if !include_nested && command_keys.len() > matches.len() {
+        println!(
+            "Command keys {:?} are longer than matches {:?}, not including nested commands",
+            command_keys.len(),
+            matches.len()
+        );
         return 0;
     }
 
@@ -131,12 +150,14 @@ pub fn get_command_root_path<'a>(
 }
 
 fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> Result<Command> {
-    let mut command_str = escape(command.into()).to_string();
+    let mut command_str = command.to_string();
 
     for arg in args {
         command_str.push(' ');
         command_str.push_str(&escape((*arg).into()));
     }
+
+    println!("Creating command: {}", command_str);
 
     let mut cmd = std::process::Command::new("sh");
 
@@ -162,20 +183,21 @@ fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> R
 /// Enum representing the type of command runner
 /// - `Command` is a command to run
 /// - `Help` is a help group that provides information about commands
-pub enum Runner<'a> {
+#[derive(Debug)]
+pub enum Runner {
     Command(Command),
-    Help(&'a Group),
+    Help(Group),
 }
 
 /// Get the command runner for a given command definition
 /// - Returns a `Runner` enum that can either be a command to run or a help group
 /// - If a group has a default command, it will create a command runner for that
 /// - It handles root paths and arguments
-pub fn get_runner<'a>(
-    command: &'a CommandDefinition,
+pub fn get_runner(
+    command: &CommandDefinition,
     parents: &[&Group],
     args: &[&str],
-) -> Result<Runner<'a>> {
+) -> Result<Runner> {
     let path = get_command_root_path(command, parents)?;
 
     let runner = match command {
@@ -188,7 +210,7 @@ pub fn get_runner<'a>(
         CommandDefinition::CommandConfig(CommandConfig { command: cmd, .. }) => {
             Runner::Command(create_command(cmd, path.as_ref(), args)?)
         }
-        CommandDefinition::Group(group) => Runner::Help(group),
+        CommandDefinition::Group(group) => Runner::Help(group.clone()),
     };
 
     Ok(runner)
@@ -277,6 +299,13 @@ impl Group {
         self.walk_commands(&mut |key, cmd, parents| {
             let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
 
+            println!("--------------------");
+            println!(
+                "Is in scope for command {}: {:?}",
+                key.join(" "),
+                is_in_scope
+            );
+
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
             match is_in_scope {
                 Err(_) => {
@@ -291,6 +320,8 @@ impl Group {
             // Calculate the match score
             let command_keys = get_command_keys(key, cmd, parents);
             let score = get_match_score(&command_keys, &matches, include_nested);
+
+            println!("Command keys: {:?}, Score: {}", command_keys, score);
 
             if score > 0 {
                 commands.push((
