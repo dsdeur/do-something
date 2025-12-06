@@ -1,7 +1,8 @@
 use crate::{
-    commands::{Group, Runner, get_runner},
+    commands::Group,
     config::{self, GlobalConfig},
     dir::git_root,
+    runner::{Runner, get_runner},
 };
 use anyhow::Result;
 use std::env;
