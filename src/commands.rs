@@ -53,7 +53,7 @@ pub enum GroupMode {
 ///
 /// There is a lot of overlap with the group configuration,
 /// these override the group settings.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct CommandConfig {
     /// Optional name for the command, used in help messages.
     pub name: Option<String>,
@@ -77,24 +77,24 @@ pub struct CommandConfig {
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct Group {
     /// Optional name for the group, used in help messages.
-    name: Option<String>,
+    pub name: Option<String>,
     /// Optional longer description for the group, used in help messages.
-    description: Option<String>,
+    pub description: Option<String>,
     /// Optional default command for the group, if no sub-command is provided.
     /// If not provided, it will show help for the group.
-    default: Option<String>,
+    pub default: Option<String>,
     /// Commands within the group. Can be commands or sub-groups.
-    commands: HashMap<String, CommandDefinition>,
+    pub commands: BTreeMap<String, CommandDefinition>,
     /// Optional environment keys (not yet implemented).
-    envs: Option<Vec<String>>,
+    pub envs: Option<Vec<String>>,
     /// Optional dotenv files options (not yet implemented).
-    dotenv_files: Option<HashMap<String, String>>,
+    pub dotenv_files: Option<BTreeMap<String, String>>,
     /// Optional root configuration, to define where the group is run from.
-    root: Option<RootConfig>,
+    pub root: Option<RootConfig>,
     /// Optional group mode, to define if it is namespaced or flattened.
-    mode: Option<GroupMode>,
+    pub mode: Option<GroupMode>,
     /// Optional aliases for the group, used to run it with different names.
-    aliases: Option<Vec<String>>,
+    pub aliases: Option<Vec<String>>,
 }
 
 impl Group {
