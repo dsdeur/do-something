@@ -3,6 +3,7 @@ use std::{env, io::IsTerminal, process::Stdio};
 use crate::{
     commands::{Commands, Group},
     config::{self, GlobalConfig},
+    dir::git_root,
 };
 use anyhow::{Ok, Result};
 use clap;
@@ -12,10 +13,14 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Comman
     let mut commands = Commands::default();
     let paths = config.get_command_paths()?;
 
+    let current_dir = std::env::current_dir()?;
+    let git_root = git_root();
+
     println!("\n\nMatches:");
     for path in &paths {
         if let Some(group) = Group::from_file(&path)? {
-            let matches = group.get_matches(matches.clone(), true);
+            let matches = group.get_matches(matches.clone(), true, &current_dir, &git_root)?;
+
             println!(
                 "Found {} matches for {}:\n\n",
                 matches.len(),
