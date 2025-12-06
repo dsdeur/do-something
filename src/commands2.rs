@@ -1,4 +1,16 @@
-use crate::commands::{CommandDefinition, Group};
+use std::{
+    io::IsTerminal,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
+
+use anyhow::Result;
+use shell_escape::escape;
+
+use crate::{
+    commands::{CommandConfig, CommandDefinition, Group, GroupMode, RootConfig},
+    dir::resolve_path,
+};
 
 /// Get the command keys for a given command definition
 /// - This function collects the keys from the command and its parent groups,
@@ -17,7 +29,7 @@ fn get_command_keys<'a>(
 
         match group.mode {
             // Only collect group aliases if the group is namespaced (default)
-            Some(crate::commands::GroupMode::Namespaced) | None => {
+            Some(GroupMode::Namespaced) | None => {
                 if let Some(aliases) = &group.aliases {
                     let mut keys = Vec::with_capacity(1 + aliases.len());
 
@@ -31,7 +43,7 @@ fn get_command_keys<'a>(
                     parent_keys.push(vec![key]);
                 }
             }
-            Some(crate::commands::GroupMode::Flattened) => {
+            Some(GroupMode::Flattened) => {
                 continue;
             }
         }
@@ -92,6 +104,81 @@ fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nest
     }
 
     score
+}
+
+pub fn get_command_root<'a>(
+    command: &'a CommandDefinition,
+    parents: &[&'a Group],
+) -> Result<(Option<&'a RootConfig>, Option<PathBuf>)> {
+    let command_root = match command {
+        CommandDefinition::CommandConfig(cmd) => cmd.root.as_ref(),
+        CommandDefinition::Group(group) => group.root.as_ref(),
+        _ => None,
+    };
+
+    if let Some(root) = command_root.or(parents.iter().rev().find_map(|g| g.root.as_ref())) {
+        let path = resolve_path(&root.path)?;
+        Ok((Some(root), Some(path)))
+    } else {
+        Ok((None, None))
+    }
+}
+
+pub enum Runner<'a> {
+    Command(Command),
+    Help(&'a Group),
+}
+
+fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> Result<Command> {
+    let mut command_str = escape(command.into()).to_string();
+
+    for arg in args {
+        command_str.push(' ');
+        command_str.push_str(&escape((*arg).into()));
+    }
+
+    let mut cmd = std::process::Command::new("sh");
+
+    cmd.arg("-c");
+    cmd.arg(command_str);
+    cmd.stdin(Stdio::inherit());
+    cmd.stdout(Stdio::inherit());
+    cmd.stderr(Stdio::inherit());
+
+    if let Some(dir) = work_dir {
+        cmd.current_dir(dir);
+    }
+
+    if std::io::stdout().is_terminal() {
+        cmd.env("CLICOLOR", "1");
+        cmd.env("CLICOLOR_FORCE", "1");
+        cmd.env("FORCE_COLOR", "1");
+    }
+
+    Ok(cmd)
+}
+
+pub fn run_command<'a>(
+    command: &'a CommandDefinition,
+    parents: &[&Group],
+    args: &[&str],
+) -> Result<Runner<'a>> {
+    let (root, path) = get_command_root(command, parents)?;
+
+    let runner = match command {
+        CommandDefinition::Group(Group {
+            default: Some(cmd), ..
+        }) => Runner::Command(create_command(cmd, path.as_ref(), args)?),
+        CommandDefinition::Command(cmd) => {
+            Runner::Command(create_command(cmd, path.as_ref(), args)?)
+        }
+        CommandDefinition::CommandConfig(CommandConfig { command: cmd, .. }) => {
+            Runner::Command(create_command(cmd, path.as_ref(), args)?)
+        }
+        CommandDefinition::Group(group) => Runner::Help(group),
+    };
+
+    Ok(runner)
 }
 
 impl Group {
