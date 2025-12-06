@@ -39,7 +39,7 @@ pub struct GlobalConfig {
 
 /// Get the configuration directory path, typically ~/.config/dosomething
 pub fn get_config_dir() -> Option<std::path::PathBuf> {
-    env::home_dir().map(|f| f.join(".config").join("dosomething"))
+    env::home_dir().map(|f| f.join(".config").join("do-something"))
 }
 
 impl Default for GlobalConfig {
