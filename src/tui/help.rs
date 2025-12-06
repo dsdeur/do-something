@@ -3,10 +3,12 @@ use crossterm::style::Stylize;
 
 pub fn print_lines(
     title: String,
+    description: String,
     lines: Vec<(String, String, String, String, usize)>,
     max_width: usize,
 ) {
-    println!("\n{}:\n", title.stylize().green().bold());
+    println!("\n{}", title.stylize().green().bold());
+    println!("{}", description.stylize().dark_yellow().dim());
 
     for (prefix, group_keys, cmd, path, len) in lines {
         let groups = if group_keys.is_empty() {
@@ -17,28 +19,31 @@ pub fn print_lines(
 
         let groups = format!(
             "{}{} {} {}",
-            prefix.dark_grey(),
-            groups.blue().bold(),
+            prefix.grey(),
+            groups.dark_blue().bold(),
             cmd.white(),
             " ".repeat(max_width - len)
         );
 
-        println!("{} {}", groups.blue(), path.black());
+        println!("{} {}", groups.blue(), path.dark_yellow());
     }
-
-    println!("");
 }
 
 impl Group {
     pub fn print_group_help(
         &self,
         group_keys: Vec<String>,
-    ) -> (String, Vec<(String, String, String, String, usize)>, usize) {
+    ) -> (
+        String,
+        Option<String>,
+        Vec<(String, String, String, String, usize)>,
+        usize,
+    ) {
         let group = group_keys.join(" ");
         let mut commands = Vec::new();
 
         self.walk_commands(&mut |keys, cmd, parents| {
-            if let Command::Group(_) = cmd {
+            if let Command::Group(Group { default: None, .. }) = cmd {
                 // If it's a group, we don't print it here, as it will be printed in the next line
                 return Walk::Continue;
             }
@@ -85,6 +90,6 @@ impl Group {
 
         let name = self.name.clone().unwrap_or(group);
 
-        (name, lines, max_width)
+        (name, self.description.clone(), lines, max_width)
     }
 }

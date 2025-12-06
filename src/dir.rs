@@ -1,6 +1,8 @@
 use anyhow::Result;
 use git2::Repository;
-use std::path;
+
+use std::env;
+use std::path::{self, Path};
 
 /// Find the current Git root directory
 pub fn git_root() -> Option<std::path::PathBuf> {
@@ -13,4 +15,14 @@ pub fn resolve_path(input: &str) -> Result<std::path::PathBuf> {
     let expanded = shellexpand::tilde(input);
     let res = path::absolute(expanded.as_ref())?;
     Ok(res)
+}
+
+pub fn collapse_to_tilde(path: &Path) -> String {
+    if let Some(home) = env::home_dir() {
+        if path.starts_with(&home) {
+            let rest = path.strip_prefix(&home).unwrap();
+            return format!("~/{}", rest.display());
+        }
+    }
+    path.display().to_string()
 }

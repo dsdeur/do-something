@@ -1,4 +1,4 @@
-use crate::dir::resolve_path;
+use crate::dir::{collapse_to_tilde, resolve_path};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -140,15 +140,15 @@ impl Group {
         let mut group: Group = serde_json::from_str(&content)?;
 
         if group.name.is_none() {
-            let parts: Vec<_> = path.as_ref().iter().map(|c| c.to_string_lossy()).collect();
+            group.name = path
+                .as_ref()
+                .file_name()
+                .and_then(|s| s.to_str())
+                .map(|s| s.to_string());
+        }
 
-            let s = if parts.len() > 3 {
-                format!("…/{}", parts[parts.len() - 3..].join("/"))
-            } else {
-                parts.join("/")
-            };
-
-            group.name = Some(s);
+        if group.description.is_none() {
+            group.description = Some(collapse_to_tilde(path.as_ref()));
         }
 
         Ok(Some(group))
@@ -411,7 +411,7 @@ impl Command {
         match self {
             Command::Command(cmd) => Some(cmd.clone()),
             Command::CommandConfig(cmd) => Some(cmd.command.clone()),
-            Command::Group(_) => None,
+            Command::Group(Group { default, .. }) => default.clone(),
         }
     }
 }

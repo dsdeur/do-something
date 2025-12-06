@@ -89,12 +89,12 @@ pub fn run() -> Result<()> {
 
         let max_size = group_lines
             .iter()
-            .map(|(_title, _lines, len)| *len)
+            .map(|(_title, _description, _lines, len)| *len)
             .max()
             .unwrap_or(0);
 
-        for (title, lines, _max_size) in group_lines {
-            print_lines(title, lines, max_size);
+        for (title, description, lines, _max_size) in group_lines {
+            print_lines(title, description.unwrap_or_default(), lines, max_size);
         }
 
         std::process::exit(0);
@@ -121,7 +121,7 @@ pub fn run() -> Result<()> {
         }
         Runner::Help(keys, group) => {
             let lines = group.print_group_help(keys);
-            print_lines(lines.0, lines.1, lines.2);
+            print_lines(lines.0, lines.1.unwrap_or_default(), lines.2, lines.3);
             std::process::exit(0);
         }
     }
