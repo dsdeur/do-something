@@ -139,8 +139,17 @@ impl Group {
         let content = fs::read_to_string(&path)?;
         let mut group: Group = serde_json::from_str(&content)?;
 
-        // Set path as name
-        group.name = Some(path.as_ref().to_string_lossy().to_string());
+        if group.name.is_none() {
+            let parts: Vec<_> = path.as_ref().iter().map(|c| c.to_string_lossy()).collect();
+
+            let s = if parts.len() > 3 {
+                format!("…/{}", parts[parts.len() - 3..].join("/"))
+            } else {
+                parts.join("/")
+            };
+
+            group.name = Some(s);
+        }
 
         Ok(Some(group))
     }
@@ -334,7 +343,7 @@ impl Command {
     /// - This function collects the keys from the command and its parent groups,
     /// - Resolves aliases if they exist
     /// - Returns a vector of vectors, where each represents one level of aliases
-    fn get_keys<'a>(&'a self, keys: &[&'a str], parents: &[&'a Group]) -> Vec<Vec<&'a str>> {
+    pub fn get_keys<'a>(&'a self, keys: &[&'a str], parents: &[&'a Group]) -> Vec<Vec<&'a str>> {
         let mut parent_keys = Vec::with_capacity(parents.len() + 1);
 
         // Collect all parent keys
@@ -396,5 +405,13 @@ impl Command {
         // Combine the parent keys with the command keys
         parent_keys.push(command_keys);
         parent_keys
+    }
+
+    pub fn get_command(&self) -> Option<String> {
+        match self {
+            Command::Command(cmd) => Some(cmd.clone()),
+            Command::CommandConfig(cmd) => Some(cmd.command.clone()),
+            Command::Group(_) => None,
+        }
     }
 }

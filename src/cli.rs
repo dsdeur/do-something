@@ -3,6 +3,7 @@ use crate::{
     config::{self, GlobalConfig},
     dir::git_root,
     runner::{Runner, get_runner},
+    tui::help::print_lines,
 };
 use anyhow::Result;
 use std::env;
@@ -79,6 +80,26 @@ pub fn run() -> Result<()> {
         }
     }
 
+    if parts.len() == 0 {
+        let mut group_lines = Vec::new();
+
+        for group in groups.iter().rev() {
+            group_lines.push(group.print_group_help(vec![]));
+        }
+
+        let max_size = group_lines
+            .iter()
+            .map(|(_title, _lines, len)| *len)
+            .max()
+            .unwrap_or(0);
+
+        for (title, lines, _max_size) in group_lines {
+            print_lines(title, lines, max_size);
+        }
+
+        std::process::exit(0);
+    }
+
     // Get the runner based on the provided arguments
     let runner = match_command(&config, parts.iter().map(|s| s.as_str()).collect(), &groups)
         .unwrap_or(None)
@@ -99,7 +120,8 @@ pub fn run() -> Result<()> {
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help(keys, group) => {
-            group.print_group_help(keys, None)?;
+            let lines = group.print_group_help(keys);
+            print_lines(lines.0, lines.1, lines.2);
             std::process::exit(0);
         }
     }

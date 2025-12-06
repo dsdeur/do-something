@@ -1,59 +1,90 @@
 use crate::commands::{Command, Group, Walk};
-use anyhow::Result;
-use std::io::{self};
+use crossterm::style::Stylize;
 
-use crossterm::execute;
-use crossterm::style::{Attribute, Color, Print, SetAttribute, SetForegroundColor};
+pub fn print_lines(
+    title: String,
+    lines: Vec<(String, String, String, String, usize)>,
+    max_width: usize,
+) {
+    println!("\n{}:\n", title.stylize().green().bold());
 
-fn print_command(group: &String, keys: String) -> Result<()> {
-    execute!(
-        io::stdout(),
-        // Set to bold
-        SetForegroundColor(Color::DarkGrey),
-        Print(format!("ds ")),
-        SetForegroundColor(Color::Blue),
-        Print(format!("{} ", group)),
-        SetForegroundColor(Color::White),
-        Print(format!("{}", keys)),
-        SetAttribute(Attribute::Reset),
-        // Print a newline
-        Print("\n"),
-    )?;
+    for (prefix, group_keys, cmd, path, len) in lines {
+        let groups = if group_keys.is_empty() {
+            group_keys
+        } else {
+            format!(" {}", group_keys)
+        };
 
-    Ok(())
+        let groups = format!(
+            "{}{} {} {}",
+            prefix.dark_grey(),
+            groups.blue().bold(),
+            cmd.white(),
+            " ".repeat(max_width - len)
+        );
+
+        println!("{} {}", groups.blue(), path.black());
+    }
+
+    println!("");
 }
 
 impl Group {
-    pub fn print_group_help(&self, group_keys: Vec<String>, name: Option<&String>) -> Result<()> {
-        let mut res = Ok(());
+    pub fn print_group_help(
+        &self,
+        group_keys: Vec<String>,
+    ) -> (String, Vec<(String, String, String, String, usize)>, usize) {
         let group = group_keys.join(" ");
+        let mut commands = Vec::new();
 
-        if let Some(name) = name.or(Some(&group)) {
-            execute!(
-                io::stdout(),
-                SetAttribute(Attribute::Bold),
-                SetAttribute(Attribute::Underlined),
-                SetForegroundColor(Color::White),
-                Print(format!("\n{}\n", name)),
-                SetAttribute(Attribute::Reset)
-            )?;
-        }
-
-        self.walk_commands(&mut |keys, _cmd, _parents| {
-            if let Command::Group(_) = _cmd {
+        self.walk_commands(&mut |keys, cmd, parents| {
+            if let Command::Group(_) = cmd {
                 // If it's a group, we don't print it here, as it will be printed in the next line
                 return Walk::Continue;
             }
 
-            match print_command(&group, keys.join(" ")) {
-                Ok(_) => Walk::Continue,
-                Err(e) => {
-                    res = Err(e);
-                    Walk::Stop
+            let keys = cmd.get_keys(keys, parents);
+
+            let mut command = Vec::new();
+            command.extend(group_keys.iter().cloned());
+            for key in &keys {
+                if let Some(first) = key.first() {
+                    command.push(first.to_string());
                 }
             }
+
+            commands.push((command, cmd.get_command()));
+
+            Walk::Continue
         });
 
-        res
+        let mut max_width = 0;
+        let mut lines = Vec::new();
+
+        for (command, path) in commands {
+            let (group_keys, cmd) = match command.as_slice() {
+                [] => ("".to_string(), "".to_string()),
+                [head @ .., last] => (head.join(" "), last.as_str().to_string()),
+            };
+
+            let mut len = 3 + cmd.len();
+
+            if !group_keys.is_empty() {
+                len += group_keys.len() + 1; // +1 for the space
+            }
+
+            max_width = max_width.max(len);
+            lines.push((
+                "ds".to_string(),
+                group_keys,
+                cmd,
+                path.unwrap_or("".to_string()),
+                len,
+            ));
+        }
+
+        let name = self.name.clone().unwrap_or(group);
+
+        (name, lines, max_width)
     }
 }
