@@ -11,10 +11,13 @@ use std::env;
 pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option<Runner>> {
     let paths = config.get_command_paths()?;
 
+    // For scoping, get the current directory and git root
     let current_dir = std::env::current_dir()?;
     let git_root = git_root();
 
     // Have to get the groups first, as otherwise having borrowing trouble
+    // We reverse the paths to get the most specific ones first,
+    // as in override mode we want the last one to win
     let mut groups = Vec::new();
     for path in paths.iter().rev() {
         if let Some(group) = Group::from_file(&path)? {
@@ -22,11 +25,10 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
         }
     }
 
+    // Collect the matches
     let mut results = Vec::new();
-
     for group in groups.iter() {
         let group_matches = group.get_matches(matches.clone(), false, &current_dir, &git_root)?;
-
         if group_matches.is_empty() {
             continue;
         }
@@ -48,9 +50,13 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
         }
     }
 
+    // We use the last item in case we are in override mode, with multiple matches in one group
+    // In case of error on_conflict mode, there will be only one match
     let last = results.last();
 
+    // Get the runner if we have a match
     last.map(|(_, keys, command, parents)| {
+        // Get the extra args and flags provided
         let extra_args = matches
             .iter()
             .skip(keys.len())
@@ -64,15 +70,20 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
 
 /// Run the CLI application
 pub fn run() -> Result<()> {
+    // Load the global configuration
     let config = config::GlobalConfig::load()?;
+
+    // Get the command line arguments, skipping the first one (the program name)
     let parts: Vec<String> = env::args().skip(1).collect();
 
+    // Get the runner based on the provided arguments
     let runner = load_commands(&config, parts.iter().map(|s| s.as_str()).collect())
         .unwrap_or(None)
         .ok_or(anyhow::anyhow!(
             "No command found matching the provided arguments"
         ))?;
 
+    // Execute the runner
     match runner {
         Runner::Command(mut cmd) => {
             println!("Running command: {:?}", cmd);
