@@ -31,16 +31,10 @@ fn get_command_keys<'a>(
 
         let key = keys[i - 1];
 
-        println!(
-            "Processing, parent: {:?} group: {}, key: {}",
-            parent_keys, i, key
-        );
-
         match group.mode {
             // Only collect group aliases if the group is namespaced (default)
             Some(GroupMode::Namespaced) | None => {
                 if let Some(aliases) = &group.aliases {
-                    println!("Group has aliases: {:?}", aliases);
                     let mut keys = Vec::with_capacity(1 + aliases.len());
 
                     // Add the group key, and its aliases
@@ -53,7 +47,6 @@ fn get_command_keys<'a>(
                     // Add to the parent keys
                     parent_keys.push(keys);
                 } else {
-                    println!("Group has no aliases, using key: {}", key);
                     parent_keys.push(vec![key]);
                 }
             }
@@ -114,11 +107,6 @@ fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nest
 
     // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
     if !include_nested && command_keys.len() > matches.len() {
-        println!(
-            "Command keys {:?} are longer than matches {:?}, not including nested commands",
-            command_keys.len(),
-            matches.len()
-        );
         return 0;
     }
 
@@ -156,8 +144,6 @@ fn create_command(command: &str, work_dir: Option<&PathBuf>, args: &[&str]) -> R
         command_str.push(' ');
         command_str.push_str(&escape((*arg).into()));
     }
-
-    println!("Creating command: {}", command_str);
 
     let mut cmd = std::process::Command::new("sh");
 
@@ -299,13 +285,6 @@ impl Group {
         self.walk_commands(&mut |key, cmd, parents| {
             let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
 
-            println!("--------------------");
-            println!(
-                "Is in scope for command {}: {:?}",
-                key.join(" "),
-                is_in_scope
-            );
-
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
             match is_in_scope {
                 Err(_) => {
@@ -320,8 +299,6 @@ impl Group {
             // Calculate the match score
             let command_keys = get_command_keys(key, cmd, parents);
             let score = get_match_score(&command_keys, &matches, include_nested);
-
-            println!("Command keys: {:?}, Score: {}", command_keys, score);
 
             if score > 0 {
                 commands.push((
