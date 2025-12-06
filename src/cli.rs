@@ -1,6 +1,5 @@
 use crate::{
-    commands::Group,
-    commands2::{Runner, get_runner},
+    commands::{Group, Runner, get_runner},
     config::{self, GlobalConfig},
     dir::git_root,
 };
