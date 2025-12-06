@@ -31,15 +31,8 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
             continue;
         }
 
-        println!(
-            "Matches for group: {:?}, {}",
-            group.name,
-            group_matches.len()
-        );
-
         // Push the group with the matches, so it stays alive
         for m in group_matches {
-            println!("Found match: {:?}", m.1);
             results.push(m)
         }
 
@@ -56,7 +49,6 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
     }
 
     let last = results.last();
-    println!("Last match: {:?}", last);
 
     last.map(|(_, keys, command, parents)| {
         let extra_args = matches
@@ -65,9 +57,7 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
             .map(|s| *s)
             .collect::<Vec<_>>();
 
-        let runner = get_runner(command, parents, &extra_args);
-        println!("Runner: {:#?}", runner);
-        runner
+        get_runner(command, parents, &extra_args)
     })
     .transpose()
 }
@@ -75,9 +65,7 @@ pub fn load_commands(config: &GlobalConfig, matches: Vec<&str>) -> Result<Option
 /// Run the CLI application
 pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
-
     let parts: Vec<String> = env::args().skip(1).collect();
-    println!("Args {:#?}", parts);
 
     let runner = load_commands(&config, parts.iter().map(|s| s.as_str()).collect())
         .unwrap_or(None)
