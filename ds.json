@@ -1,6 +1,12 @@
 {
   "commands": {
-    "install": "cargo build --release && cargo install --path .",
-    "run": "cargo run --"
+    "install": {
+      "aliases": ["i"],
+      "command": "cargo build --release && cargo install --path ."
+    },
+    "run": {
+      "aliases": ["r"],
+      "command": "cargo run --"
+    }
   }
 }
