@@ -19,11 +19,11 @@ pub fn resolve_path(input: &str) -> Result<PathBuf> {
 
 /// Collapse a path to use `~` for the home directory if applicable
 pub fn collapse_to_tilde(path: &Path) -> String {
-    if let Some(home) = env::home_dir() {
-        if path.starts_with(&home) {
-            let rest = path.strip_prefix(&home).unwrap();
-            return format!("~/{}", rest.display());
-        }
+    if let Some(home) = env::home_dir()
+        && path.starts_with(&home)
+    {
+        let rest = path.strip_prefix(&home).unwrap();
+        return format!("~/{}", rest.display());
     }
     path.display().to_string()
 }

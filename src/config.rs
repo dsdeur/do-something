@@ -126,10 +126,8 @@ impl GlobalConfig {
         let mut deduped = Vec::new();
 
         for p in paths {
-            if seen.insert(p.clone()) {
-                if p.exists() {
-                    deduped.push(p);
-                }
+            if seen.insert(p.clone()) && p.exists() {
+                deduped.push(p);
             }
         }
 

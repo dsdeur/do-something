@@ -112,7 +112,7 @@ impl Group {
         for (key, command) in self.commands.iter() {
             keys.push(key);
 
-            match on_command(&keys, command, parents) {
+            match on_command(keys, command, parents) {
                 Walk::Continue => (),
                 // Skip the current command, meaning don't process the group
                 Walk::Skip => {
@@ -188,7 +188,7 @@ impl Group {
 
             if let Some(command) = cmd.get_command() {
                 let alias_keys = cmd
-                    .get_keys(keys, &parents)
+                    .get_keys(keys, parents)
                     .into_iter()
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
@@ -208,7 +208,7 @@ impl Group {
 #[serde(untagged)]
 pub enum Command {
     /// A simple command string.
-    Command(String),
+    Basic(String),
     /// A command with additional configuration.
     CommandConfig(CommandConfig),
     /// A nested group of commands.
@@ -334,7 +334,7 @@ impl Command {
 
         // Add the command aliases if they exist
         match self {
-            Command::Command(_) => (),
+            Command::Basic(_) => (),
             Command::CommandConfig(command) => {
                 if let Some(aliases) = &command.aliases {
                     for alias in aliases {
@@ -359,7 +359,7 @@ impl Command {
     /// Get the command string for the command definition
     pub fn get_command(&self) -> Option<String> {
         match self {
-            Command::Command(cmd) => Some(cmd.clone()),
+            Command::Basic(cmd) => Some(cmd.clone()),
             Command::CommandConfig(cmd) => Some(cmd.command.clone()),
             Command::Group(Group { default, .. }) => default.clone(),
         }

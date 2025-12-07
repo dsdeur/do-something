@@ -50,7 +50,7 @@ fn create_command(
 /// - `Help` is a help group that provides information about commands
 #[derive(Debug)]
 pub enum Runner {
-    Command(String, ProcessCommand),
+    Command(String, Box<ProcessCommand>),
     Help,
 }
 
@@ -71,13 +71,18 @@ impl Runner {
         let runner = match command {
             Command::Group(Group {
                 default: Some(cmd), ..
-            }) => Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), extra_args)?),
-            Command::Command(cmd) => {
-                Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), extra_args)?)
-            }
-            Command::CommandConfig(CommandConfig { command: cmd, .. }) => {
-                Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), extra_args)?)
-            }
+            }) => Runner::Command(
+                cmd.clone(),
+                Box::new(create_command(cmd, path.as_ref(), extra_args)?),
+            ),
+            Command::Basic(cmd) => Runner::Command(
+                cmd.clone(),
+                Box::new(create_command(cmd, path.as_ref(), extra_args)?),
+            ),
+            Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
+                cmd.clone(),
+                Box::new(create_command(cmd, path.as_ref(), extra_args)?),
+            ),
             Command::Group(_group) => Runner::Help,
         };
 
