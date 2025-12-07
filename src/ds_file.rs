@@ -89,7 +89,7 @@ impl DsFile {
     }
 
     /// Get a command (and it's parents) from the tree, based on the provided keys
-    pub fn command_from_keys(&self, keys: &Vec<String>) -> Result<(&Command, Vec<&Group>)> {
+    pub fn command_from_keys(&self, keys: &[String]) -> Result<(&Command, Vec<&Group>)> {
         let mut parents: Vec<&Group> = Vec::new();
         let mut command = None;
 
