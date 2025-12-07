@@ -67,7 +67,7 @@ impl Runner {
         command: &Command,
     ) -> Result<Self> {
         let path = command.get_command_root_path(parents)?;
-        let extra_args = &target[command_match.keys.len()..];
+        let extra_args = &target[command_match.keys.len().min(target.len())..];
 
         let runner = match command {
             Command::Group(Group {
