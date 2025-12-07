@@ -6,14 +6,20 @@ use crate::{
 use anyhow::Result;
 use std::{fs, path::Path};
 
+/// Represents a command file, which contains a group of commands
+/// Mainly to have a common interface for loading and matching commands.
 pub struct DsFile {
     pub group: Group,
 }
 
+/// Represents a match for a command, containing the score and keys
 #[derive(Debug)]
 pub struct Match {
+    /// The score of the match, which is the number of levels that match
     pub score: usize,
+    /// The path in the command file that matched
     pub keys: Vec<String>,
+    /// All the alias keys of the command (including parents)
     pub alias_keys: Vec<Vec<String>>,
 }
 

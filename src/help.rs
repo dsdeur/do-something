@@ -2,6 +2,7 @@ use crate::ds_file::DsFile;
 use crossterm::style::Stylize;
 use std::io::IsTerminal;
 
+/// Represents a row in the help output
 #[derive(Debug)]
 pub struct HelpRow {
     pub alias_keys: Vec<Vec<String>>,
@@ -10,6 +11,7 @@ pub struct HelpRow {
 }
 
 impl HelpRow {
+    /// Create a new help row with the given alias keys and command
     pub fn new(alias_keys: Vec<Vec<String>>, command: String) -> Self {
         HelpRow {
             prefix: "ds",
@@ -18,6 +20,7 @@ impl HelpRow {
         }
     }
 
+    /// Get the group keys as a space-separated string
     pub fn get_group_keys(&self) -> String {
         let res: Vec<_> = self
             .alias_keys
@@ -29,6 +32,7 @@ impl HelpRow {
         res.join(" ")
     }
 
+    /// Get the main key for the command, so the first key in the last alias
     pub fn get_key(&self) -> String {
         self.alias_keys
             .last()
@@ -36,6 +40,7 @@ impl HelpRow {
             .unwrap_or_default()
     }
 
+    /// Get the length of the row, to calculate how much space it will take in the output
     #[must_use]
     pub fn len(&self) -> usize {
         let mut len = self.prefix.len() + 1 + self.get_key().len();
@@ -48,6 +53,7 @@ impl HelpRow {
         len
     }
 
+    /// Get the formatted aliases for the command
     pub fn aliases(&self) -> Option<String> {
         if !self.alias_keys.iter().any(|keys| keys.len() > 1) {
             return None;
@@ -65,6 +71,7 @@ impl HelpRow {
     }
 }
 
+/// Print the help lines for a given file
 pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
     if lines.is_empty() {
         return;
