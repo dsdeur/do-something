@@ -63,9 +63,6 @@ impl Command {
     /// Get the root path and configuration for the command
     /// - Returns a tuple of the root configuration and the resolved path
     /// - Looks at the command first, then at the parent groups
-    ///
-    /// This one is different from CommandDefinition::get_command_root, as it looks
-    /// at all parents, not just the immediate parent group.
     pub fn get_command_root_path<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
         let command_root = match self {
             Command::Config(cmd) => cmd.root.as_ref(),
