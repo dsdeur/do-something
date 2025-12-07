@@ -1,5 +1,7 @@
 use crate::commands::{Command, Group, Walk};
 use crossterm::style::Stylize;
+use std::io::IsTerminal;
+use std::path::{Path, PathBuf};
 
 pub fn print_lines(
     title: String,
@@ -7,8 +9,14 @@ pub fn print_lines(
     lines: Vec<(String, String, String, String, usize)>,
     max_width: usize,
 ) {
-    println!("\n{}", title.stylize().green().bold());
-    println!("{}", description.stylize().dark_yellow().dim());
+    if lines.is_empty() {
+        return;
+    }
+
+    if std::io::stdout().is_terminal() {
+        println!("\n{}", title.stylize().green().bold());
+        println!("{}", description.stylize().dark_yellow().dim());
+    }
 
     for (prefix, group_keys, cmd, path, len) in lines {
         let groups = if group_keys.is_empty() {
@@ -17,15 +25,20 @@ pub fn print_lines(
             format!(" {}", group_keys)
         };
 
-        let groups = format!(
-            "{}{} {} {}",
-            prefix.grey(),
-            groups.dark_blue().bold(),
-            cmd.white(),
-            " ".repeat(max_width - len)
-        );
+        if std::io::stdout().is_terminal() {
+            let groups = format!(
+                "{}{} {} {}",
+                prefix.grey(),
+                groups.dark_blue().bold(),
+                cmd.white(),
+                " ".repeat(max_width - len)
+            );
 
-        println!("{} {}", groups.blue(), path.dark_yellow());
+            println!("{} {}", groups.blue(), path.dark_yellow());
+        } else {
+            // If not in a terminal, just print the command and path
+            println!("{}{} {}", prefix, groups, cmd);
+        }
     }
 }
 
@@ -33,6 +46,8 @@ impl Group {
     pub fn print_group_help(
         &self,
         group_keys: Vec<String>,
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
     ) -> (
         String,
         Option<String>,
@@ -43,6 +58,17 @@ impl Group {
         let mut commands = Vec::new();
 
         self.walk_commands(&mut |keys, cmd, parents| {
+            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
+
+            // If the command/group is not in scope, we skip it early to avoid unnecessary processing
+            match is_in_scope {
+                Err(_) => {
+                    return Walk::Stop;
+                }
+                Ok(false) => return Walk::Skip,
+                Ok(true) => {}
+            }
+
             if let Command::Group(Group { default: None, .. }) = cmd {
                 // If it's a group, we don't print it here, as it will be printed in the next line
                 return Walk::Continue;
@@ -52,6 +78,7 @@ impl Group {
 
             let mut command = Vec::new();
             command.extend(group_keys.iter().cloned());
+
             for key in &keys {
                 if let Some(first) = key.first() {
                     command.push(first.to_string());

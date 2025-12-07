@@ -7,18 +7,19 @@ use crate::{
 };
 use anyhow::Result;
 use crossterm::style::Stylize;
-use std::env;
+use std::{
+    env,
+    path::{Path, PathBuf},
+};
 
 /// Load the config, then the command files, and match the command
 pub fn match_command(
     config: &GlobalConfig,
     matches: Vec<&str>,
     groups: &Vec<Group>,
+    current_dir: impl AsRef<Path>,
+    git_root: &Option<PathBuf>,
 ) -> Result<Option<Runner>> {
-    // For scoping, get the current directory and git root
-    let current_dir = std::env::current_dir()?;
-
-    let git_root = git_root();
     // Collect the matches
     let mut results = Vec::new();
     for group in groups.iter() {
@@ -71,6 +72,10 @@ pub fn run() -> Result<()> {
     let config = config::GlobalConfig::load()?;
     let paths = config.get_command_paths()?;
 
+    // For scoping, get the current directory and git root
+    let current_dir = std::env::current_dir()?;
+    let git_root = git_root();
+
     // Have to get the groups first, as otherwise having borrowing trouble
     // We reverse the paths to get the most specific ones first,
     // as in override mode we want the last one to win
@@ -85,7 +90,7 @@ pub fn run() -> Result<()> {
         let mut group_lines = Vec::new();
 
         for group in groups.iter().rev() {
-            group_lines.push(group.print_group_help(vec![]));
+            group_lines.push(group.print_group_help(vec![], &current_dir, &git_root));
         }
 
         let max_size = group_lines
@@ -102,11 +107,17 @@ pub fn run() -> Result<()> {
     }
 
     // Get the runner based on the provided arguments
-    let runner = match_command(&config, parts.iter().map(|s| s.as_str()).collect(), &groups)
-        .unwrap_or(None)
-        .ok_or(anyhow::anyhow!(
-            "No command found matching the provided arguments"
-        ))?;
+    let runner = match_command(
+        &config,
+        parts.iter().map(|s| s.as_str()).collect(),
+        &groups,
+        &current_dir,
+        &git_root,
+    )
+    .unwrap_or(None)
+    .ok_or(anyhow::anyhow!(
+        "No command found matching the provided arguments"
+    ))?;
 
     // Execute the runner
     match runner {
@@ -121,7 +132,7 @@ pub fn run() -> Result<()> {
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help(keys, group) => {
-            let lines = group.print_group_help(keys);
+            let lines = group.print_group_help(keys, current_dir, &git_root);
             print_lines(lines.0, lines.1.unwrap_or_default(), lines.2, lines.3);
             std::process::exit(0);
         }
