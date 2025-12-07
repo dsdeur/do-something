@@ -5,6 +5,7 @@ use crate::{
 use anyhow::Result;
 use shell_escape::escape;
 use std::{
+    borrow::Cow,
     io::IsTerminal,
     path::PathBuf,
     process::{Command as ProcessCommand, Stdio},
@@ -20,7 +21,7 @@ fn create_command(
 
     for arg in args {
         command_str.push(' ');
-        command_str.push_str(&escape((*arg).into()));
+        command_str.push_str(&escape(Cow::Borrowed(arg)));
     }
 
     let mut cmd = ProcessCommand::new("sh");

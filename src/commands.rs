@@ -164,13 +164,13 @@ impl Group {
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
         current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
+        git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<HelpRow>> {
         let mut rows = Vec::new();
         let mut err = None;
 
         self.walk_tree(keys, parents, &mut |keys, cmd, parents| {
-            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
+            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref());
 
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
             match is_in_scope {
@@ -201,7 +201,7 @@ impl Group {
 
         // If there was an error, return it
         if let Some(err) = err {
-            return Err(err);
+            Err(err)
         } else {
             Ok(rows)
         }
@@ -270,7 +270,7 @@ impl Command {
     pub fn is_in_scope(
         &self,
         current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
+        git_root: Option<impl AsRef<Path>>,
     ) -> Result<bool> {
         let root = self.get_root()?;
 
@@ -279,7 +279,8 @@ impl Command {
                 Some(RootScope::Exact) => Ok(current_dir.as_ref() == target_path),
                 Some(RootScope::GitRoot) => {
                     if let Some(git_root) = git_root {
-                        Ok(current_dir.as_ref().starts_with(&git_root) && git_root == &target_path)
+                        Ok(current_dir.as_ref().starts_with(git_root.as_ref())
+                            && git_root.as_ref() == target_path)
                     } else {
                         Ok(false)
                     }

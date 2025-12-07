@@ -2,16 +2,16 @@ use anyhow::Result;
 use git2::Repository;
 
 use std::env;
-use std::path::{self, Path};
+use std::path::{self, Path, PathBuf};
 
 /// Find the current Git root directory
-pub fn git_root() -> Option<std::path::PathBuf> {
+pub fn git_root() -> Option<PathBuf> {
     let repo = Repository::discover(".").ok()?;
     repo.workdir().map(|p| p.to_path_buf())
 }
 
 /// Resolve a given path, expanding `~` to the home directory and converting to an absolute path.
-pub fn resolve_path(input: &str) -> Result<std::path::PathBuf> {
+pub fn resolve_path(input: &str) -> Result<PathBuf> {
     let expanded = shellexpand::tilde(input);
     let res = path::absolute(expanded.as_ref())?;
     Ok(res)

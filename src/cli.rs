@@ -2,7 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match},
-    help::print_lines,
+    help::{HelpRow, print_lines},
     runner::Runner,
 };
 use anyhow::Result;
@@ -18,7 +18,7 @@ pub fn match_command(
     paths: &[PathBuf],
     target: &[&str],
     current_dir: impl AsRef<Path>,
-    git_root: &Option<PathBuf>,
+    git_root: Option<impl AsRef<Path>>,
 ) -> Result<Vec<(DsFile, Vec<Match>)>> {
     // Collect the matches
     let mut files = Vec::new();
@@ -26,7 +26,7 @@ pub fn match_command(
 
     for path in paths.iter().rev() {
         let file = DsFile::from_file(path)?;
-        let matches = file.get_matches(target, &current_dir, &git_root)?;
+        let matches = file.get_matches(target, &current_dir, git_root.as_ref())?;
 
         if !matches.is_empty() {
             match_count += matches.len();
@@ -59,7 +59,7 @@ pub fn render_help(
 
     for path in paths.iter().rev() {
         let file = DsFile::from_file(path)?;
-        let rows = file.get_help_rows(&current_dir, &git_root)?;
+        let rows = file.get_help_rows(&current_dir, git_root.as_ref())?;
 
         // If the group has no commands, we skip it
         if rows.is_empty() {
@@ -71,7 +71,8 @@ pub fn render_help(
 
     let max_size = groups
         .iter()
-        .flat_map(|(_file, rows)| rows.iter().map(|row| row.len()))
+        .flat_map(|(_file, rows)| rows)
+        .map(HelpRow::len)
         .max()
         .unwrap_or(0);
 
@@ -85,8 +86,8 @@ pub fn render_help(
 /// Run the CLI application
 pub fn run() -> Result<()> {
     // Get the command line arguments, skipping the first one (the program name)
-    let parts: Vec<String> = env::args().skip(1).collect();
-    let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
+    let args: Vec<String> = env::args().skip(1).collect();
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
     // Load the global configuration
     let config = config::GlobalConfig::load()?;
@@ -96,27 +97,27 @@ pub fn run() -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let git_root = git_root();
 
-    if parts.is_empty() {
+    if args_str.is_empty() {
         // If no arguments are provided, we render the help for all commands
         render_help(&paths, &current_dir, &git_root)?;
         std::process::exit(0);
     }
 
     // Get the runner based on the provided arguments
-    let matches = match_command(&config, &paths, &parts, &current_dir, &git_root)?;
+    let matches = match_command(&config, &paths, &args_str, &current_dir, git_root.as_ref())?;
 
     // Get the first match, as we reverse iterate
     let (file, matches) = matches
         .first()
-        .ok_or_else(|| anyhow::anyhow!("No matching command found for: {}", parts.join(" ")))?;
+        .ok_or_else(|| anyhow::anyhow!("No matching command found for: {}", args_str.join(" ")))?;
 
     // Get the runner for the last match
     let last_match = matches
         .last()
-        .ok_or_else(|| anyhow::anyhow!("No matching command found in file",))?;
+        .ok_or_else(|| anyhow::anyhow!("No matching command found in file"))?;
 
     let (command, parents) = file.command_from_keys(&last_match.keys)?;
-    let runner = Runner::from_match(&last_match, &parents, &parts, command)?;
+    let runner = Runner::from_match(&last_match, &parents, &args_str, command)?;
 
     // Execute the runner
     match runner {
@@ -126,7 +127,8 @@ pub fn run() -> Result<()> {
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help => {
-            let lines = file.get_help_rows_for_match(&last_match, &current_dir, &git_root)?;
+            let lines =
+                file.get_help_rows_for_match(&last_match, &current_dir, git_root.as_ref())?;
             let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
             print_lines(file, lines, max_size);
             std::process::exit(0);

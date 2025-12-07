@@ -36,6 +36,7 @@ impl HelpRow {
             .unwrap_or_else(|| "".to_string())
     }
 
+    #[must_use]
     pub fn len(&self) -> usize {
         let mut len = self.prefix.len() + 1 + self.get_key().len();
         let group_keys = self.get_group_keys();
@@ -57,12 +58,6 @@ impl HelpRow {
                 return keys[0].clone();
             }
 
-            let keys = keys.iter().map(|s| s.to_string()).collect::<Vec<_>>();
-
-            if keys.len() == 1 {
-                return keys[0].clone();
-            }
-
             format!("({})", keys.join("|"))
         });
 
@@ -76,12 +71,12 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
     }
 
     if let Some(name) = &file.group.name {
-        println!("\n{}", name.clone().stylize().green().bold());
+        println!("\n{}", name.as_str().stylize().green().bold());
     }
 
     if let Some(description) = &file.group.description {
         if std::io::stdout().is_terminal() {
-            println!("{}", description.clone().stylize().dark_yellow().dim());
+            println!("{}", description.as_str().stylize().dark_yellow().dim());
         } else {
             println!("{}", description);
         }

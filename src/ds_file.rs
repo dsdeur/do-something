@@ -4,10 +4,7 @@ use crate::{
     help::HelpRow,
 };
 use anyhow::Result;
-use std::{
-    fs,
-    path::{Path, PathBuf},
-};
+use std::{fs, path::Path};
 
 pub struct DsFile {
     pub group: Group,
@@ -88,7 +85,7 @@ impl DsFile {
         Ok(Self { group })
     }
 
-    /// Get a command (and it's parents) from the tree, based on the provided keys
+    /// Get a command (and its parents) from the tree, based on the provided keys
     pub fn command_from_keys(&self, keys: &[String]) -> Result<(&Command, Vec<&Group>)> {
         let mut parents: Vec<&Group> = Vec::new();
         let mut command = None;
@@ -127,13 +124,13 @@ impl DsFile {
         &self,
         target: &[&str],
         current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
+        git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<Match>> {
         let mut commands = Vec::new();
         let mut err = None;
 
         self.group.walk_commands(&mut |keys, cmd, parents| {
-            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
+            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref());
 
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
             match is_in_scope {
@@ -186,11 +183,10 @@ impl DsFile {
         &self,
         match_: &Match,
         current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
+        git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<HelpRow>> {
         let (command, parents) = self.command_from_keys(&match_.keys)?;
-        let keys = match_.keys.clone();
-        let mut keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
+        let mut keys = match_.keys.iter().map(|s| s.as_str()).collect();
         let mut parents = parents;
 
         match command {
@@ -209,11 +205,11 @@ impl DsFile {
     pub fn get_help_rows(
         &self,
         current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
+        git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<HelpRow>> {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
         self.group
-            .get_help_rows(&mut keys, &mut parents, current_dir, git_root)
+            .get_help_rows(&mut keys, &mut parents, current_dir, git_root.as_ref())
     }
 }
