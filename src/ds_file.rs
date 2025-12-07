@@ -100,6 +100,7 @@ impl DsFile {
         Ok(Self { group })
     }
 
+    /// Get a command (and it's parents) from the tree, based on the provided keys
     pub fn command_from_keys(&self, keys: &Vec<String>) -> Result<(&Command, Vec<&Group>)> {
         let mut parents: Vec<&Group> = Vec::new();
         let mut command = None;
@@ -193,6 +194,7 @@ impl DsFile {
         Ok(res)
     }
 
+    /// Get the help rows for a match in the command file
     pub fn get_help_rows_for_match(
         &self,
         match_: &Match,
@@ -216,6 +218,7 @@ impl DsFile {
         }
     }
 
+    /// Get the help rows for the full command file
     pub fn get_help_rows(
         &self,
         current_dir: impl AsRef<Path>,

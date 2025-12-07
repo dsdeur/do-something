@@ -10,6 +10,7 @@ use std::{
     process::{Command as ProcessCommand, Stdio},
 };
 
+/// Create a command to run in the shell
 fn create_command(
     command: &str,
     work_dir: Option<&PathBuf>,

@@ -17,6 +17,7 @@ pub fn resolve_path(input: &str) -> Result<std::path::PathBuf> {
     Ok(res)
 }
 
+/// Collapse a path to use `~` for the home directory if applicable
 pub fn collapse_to_tilde(path: &Path) -> String {
     if let Some(home) = env::home_dir() {
         if path.starts_with(&home) {

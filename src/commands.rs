@@ -100,6 +100,7 @@ pub struct Group {
 }
 
 impl Group {
+    /// Walk the group commands recursively, calling `on_command` for each command.
     pub fn walk_tree<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,

@@ -12,16 +12,14 @@ use std::{
     path::{Path, PathBuf},
 };
 
-/// Load the config, then the command files, and match the command
+/// Find and match a command in the provided paths
 pub fn match_command(
+    config: &config::GlobalConfig,
+    paths: &Vec<PathBuf>,
     target: Vec<&str>,
     current_dir: impl AsRef<Path>,
     git_root: &Option<PathBuf>,
 ) -> Result<Vec<(DsFile, Vec<Match>)>> {
-    // Load the global configuration
-    let config = config::GlobalConfig::load()?;
-    let paths = config.get_command_paths()?;
-
     // Collect the matches
     let mut files = Vec::new();
     let mut match_count = 0;
@@ -51,6 +49,39 @@ pub fn match_command(
     Ok(files)
 }
 
+/// Render the help for all commands
+pub fn render_help(
+    paths: &Vec<PathBuf>,
+    current_dir: impl AsRef<Path>,
+    git_root: &Option<PathBuf>,
+) -> Result<()> {
+    let mut groups = Vec::new();
+
+    for path in paths.iter().rev() {
+        let file = DsFile::from_file(path)?;
+        let rows = file.get_help_rows(&current_dir, &git_root)?;
+
+        // If the group has no commands, we skip it
+        if rows.is_empty() {
+            continue;
+        }
+
+        groups.push((file, rows))
+    }
+
+    let max_size = groups
+        .iter()
+        .flat_map(|(_file, rows)| rows.iter().map(|row| row.len()))
+        .max()
+        .unwrap_or(0);
+
+    for (file, rows) in groups {
+        print_lines(&file, rows, max_size);
+    }
+
+    Ok(())
+}
+
 /// Run the CLI application
 pub fn run() -> Result<()> {
     // Get the command line arguments, skipping the first one (the program name)
@@ -65,35 +96,15 @@ pub fn run() -> Result<()> {
     let git_root = git_root();
 
     if parts.len() == 0 {
-        let mut groups = Vec::new();
-
-        for path in paths.iter().rev() {
-            let file = DsFile::from_file(path)?;
-            let rows = file.get_help_rows(&current_dir, &git_root)?;
-
-            // If the group has no commands, we skip it
-            if rows.is_empty() {
-                continue;
-            }
-
-            groups.push((file, rows))
-        }
-
-        let max_size = groups
-            .iter()
-            .flat_map(|(_file, rows)| rows.iter().map(|row| row.len()))
-            .max()
-            .unwrap_or(0);
-
-        for (file, rows) in groups {
-            print_lines(&file, rows, max_size);
-        }
-
+        // If no arguments are provided, we render the help for all commands
+        render_help(&paths, &current_dir, &git_root)?;
         std::process::exit(0);
     }
 
     // Get the runner based on the provided arguments
     let matches = match_command(
+        &config,
+        &paths,
         parts.iter().map(|s| s.as_str()).collect(),
         &current_dir,
         &git_root,
