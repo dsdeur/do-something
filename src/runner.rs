@@ -76,11 +76,11 @@ impl Runner {
                 format!("{} {}", cmd, extra_args.join(" ")),
                 Box::new(create_command(cmd, path.as_ref(), extra_args)?),
             ),
-            Command::Basic(cmd) => Runner::Command(
+            Command::Inline(cmd) => Runner::Command(
                 format!("{} {}", cmd, extra_args.join(" ")),
                 Box::new(create_command(cmd, path.as_ref(), extra_args)?),
             ),
-            Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
+            Command::Config(CommandConfig { command: cmd, .. }) => Runner::Command(
                 format!("{} {}", cmd, extra_args.join(" ")),
                 Box::new(create_command(cmd, path.as_ref(), extra_args)?),
             ),

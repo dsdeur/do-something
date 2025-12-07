@@ -52,9 +52,9 @@ pub struct CommandConfig {
 #[serde(untagged)]
 pub enum Command {
     /// A simple command string.
-    Basic(String),
+    Inline(String),
     /// A command with additional configuration.
-    CommandConfig(CommandConfig),
+    Config(CommandConfig),
     /// A nested group of commands.
     Group(Group),
 }
@@ -68,7 +68,7 @@ impl Command {
     /// at all parents, not just the immediate parent group.
     pub fn get_command_root_path<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
         let command_root = match self {
-            Command::CommandConfig(cmd) => cmd.root.as_ref(),
+            Command::Config(cmd) => cmd.root.as_ref(),
             Command::Group(group) => group.root.as_ref(),
             _ => None,
         };
@@ -89,7 +89,7 @@ impl Command {
     /// Resolves the root path to an absolute path (including tilde expansion).
     fn get_root(&self) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
         let item_root = match self {
-            Command::CommandConfig(cmd) => cmd.root.clone(),
+            Command::Config(cmd) => cmd.root.clone(),
             Command::Group(group) => group.root.clone(),
             _ => None,
         };
@@ -178,8 +178,8 @@ impl Command {
 
         // Add the command aliases if they exist
         match self {
-            Command::Basic(_) => (),
-            Command::CommandConfig(command) => {
+            Command::Inline(_) => (),
+            Command::Config(command) => {
                 if let Some(aliases) = &command.aliases {
                     for alias in aliases {
                         command_keys.push(alias);
@@ -203,8 +203,8 @@ impl Command {
     /// Get the command string for the command definition
     pub fn get_command(&self) -> Option<&str> {
         match self {
-            Command::Basic(cmd) => Some(cmd),
-            Command::CommandConfig(cmd) => Some(&cmd.command),
+            Command::Inline(cmd) => Some(cmd),
+            Command::Config(cmd) => Some(&cmd.command),
             Command::Group(Group { default, .. }) => default.as_deref(),
         }
     }

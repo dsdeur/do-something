@@ -195,8 +195,8 @@ impl DsFile {
         let mut parents = parents;
 
         match command {
-            Command::Basic(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
-            Command::CommandConfig(CommandConfig { command, .. }) => Ok(vec![HelpRow::new(
+            Command::Inline(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
+            Command::Config(CommandConfig { command, .. }) => Ok(vec![HelpRow::new(
                 match_.alias_keys.clone(),
                 command.clone(),
             )]),
