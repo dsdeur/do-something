@@ -5,14 +5,14 @@ use std::io::IsTerminal;
 #[derive(Debug)]
 pub struct HelpRow {
     pub alias_keys: Vec<Vec<String>>,
-    pub prefix: String,
+    pub prefix: &'static str,
     pub command: String,
 }
 
 impl HelpRow {
     pub fn new(alias_keys: Vec<Vec<String>>, command: String) -> Self {
         HelpRow {
-            prefix: "ds".to_string(),
+            prefix: "ds",
             alias_keys,
             command,
         }

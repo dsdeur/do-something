@@ -195,7 +195,7 @@ impl Group {
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
 
-                rows.push(HelpRow::new(alias_keys, command));
+                rows.push(HelpRow::new(alias_keys, command.to_string()));
             }
 
             Walk::Continue
@@ -359,11 +359,11 @@ impl Command {
     }
 
     /// Get the command string for the command definition
-    pub fn get_command(&self) -> Option<String> {
+    pub fn get_command(&self) -> Option<&str> {
         match self {
-            Command::Basic(cmd) => Some(cmd.clone()),
-            Command::CommandConfig(cmd) => Some(cmd.command.clone()),
-            Command::Group(Group { default, .. }) => default.clone(),
+            Command::Basic(cmd) => Some(cmd),
+            Command::CommandConfig(cmd) => Some(&cmd.command),
+            Command::Group(Group { default, .. }) => default.as_deref(),
         }
     }
 }
