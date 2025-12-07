@@ -276,6 +276,10 @@ impl Group {
 
         Ok(res)
     }
+
+    pub fn get_command_by_key(&self, key: &str) -> Option<&Command> {
+        return self.commands.get(key);
+    }
 }
 
 /// A command definition in a group commands field.

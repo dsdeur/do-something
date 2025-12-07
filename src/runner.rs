@@ -1,6 +1,7 @@
 use crate::{
     commands::{Command, CommandConfig, Group},
     dir::resolve_path,
+    ds_file::Match,
 };
 use anyhow::Result;
 use shell_escape::escape;
@@ -37,7 +38,7 @@ pub fn get_command_root_path<'a>(
 fn create_command(
     command: &str,
     work_dir: Option<&PathBuf>,
-    args: &[&str],
+    args: &Vec<&String>,
 ) -> Result<ProcessCommand> {
     let mut command_str = command.to_string();
 
@@ -73,7 +74,7 @@ fn create_command(
 #[derive(Debug)]
 pub enum Runner {
     Command(String, ProcessCommand),
-    Help(Vec<String>, Group),
+    Help(),
 }
 
 /// Get the command runner for a given command definition
@@ -81,24 +82,32 @@ pub enum Runner {
 /// - If a group has a default command, it will create a command runner for that
 /// - It handles root paths and arguments
 pub fn get_runner(
-    keys: Vec<String>,
-    command: &Command,
+    command_match: &Match,
     parents: &[&Group],
-    args: &[&str],
+    target: &Vec<String>,
 ) -> Result<Runner> {
-    let path = get_command_root_path(command, parents)?;
+    let path = get_command_root_path(&command_match.command, parents)?;
+    let extra_args = target
+        .iter()
+        .skip(command_match.keys.len())
+        .collect::<Vec<_>>();
 
-    let runner = match command {
+    let runner = match &command_match.command {
         Command::Group(Group {
             default: Some(cmd), ..
-        }) => Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), args)?),
-        Command::Command(cmd) => {
-            Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), args)?)
-        }
-        Command::CommandConfig(CommandConfig { command: cmd, .. }) => {
-            Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), args)?)
-        }
-        Command::Group(group) => Runner::Help(keys, group.clone()),
+        }) => Runner::Command(
+            cmd.clone(),
+            create_command(cmd, path.as_ref(), &extra_args)?,
+        ),
+        Command::Command(cmd) => Runner::Command(
+            cmd.clone(),
+            create_command(cmd, path.as_ref(), &extra_args)?,
+        ),
+        Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
+            cmd.clone(),
+            create_command(cmd, path.as_ref(), &extra_args)?,
+        ),
+        Command::Group(_group) => Runner::Help(),
     };
 
     Ok(runner)
