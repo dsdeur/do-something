@@ -126,7 +126,6 @@ pub fn run() -> Result<()> {
         }
         Runner::Help() => {
             let lines = file.get_help_rows_for_match(&last_match)?;
-            println!("{:#?}", lines);
             let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
             print_lines(file, lines, max_size);
             std::process::exit(0);

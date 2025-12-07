@@ -166,12 +166,6 @@ impl Group {
 
         self.walk_tree(keys, parents, &mut |keys, cmd, parents| {
             if let Some(command) = cmd.get_command() {
-                let parent_aliases = parents
-                    .iter()
-                    .map(|f| f.aliases.clone())
-                    .collect::<Vec<_>>();
-                println!("{:?} aliases {:?}", keys, parent_aliases);
-
                 let alias_keys = cmd
                     .get_keys(keys, &parents)
                     .into_iter()
