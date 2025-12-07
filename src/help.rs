@@ -33,7 +33,7 @@ impl HelpRow {
         self.alias_keys
             .last()
             .and_then(|keys| keys.first().cloned())
-            .unwrap_or_else(|| "".to_string())
+            .unwrap_or_default()
     }
 
     #[must_use]
@@ -96,7 +96,7 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
         let prefix = row.prefix;
 
         if std::io::stdout().is_terminal() {
-            let groups = format!(
+            let cmd = format!(
                 "{} {}{} {}",
                 prefix.grey(),
                 groups.dark_blue().bold(),
@@ -104,7 +104,7 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
                 " ".repeat(max_width - length)
             );
 
-            println!("{} {}", groups.blue(), row.command.dark_yellow());
+            println!("{} {}", cmd.blue(), row.command.dark_yellow());
 
             if let Some(aliases) = aliases {
                 println!("{}{}", " - ".dim(), aliases.dim());

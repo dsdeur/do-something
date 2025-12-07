@@ -53,7 +53,7 @@ pub fn match_command(
 pub fn render_help(
     paths: &[PathBuf],
     current_dir: impl AsRef<Path>,
-    git_root: &Option<PathBuf>,
+    git_root: Option<impl AsRef<Path>>,
 ) -> Result<()> {
     let mut groups = Vec::new();
 
@@ -99,7 +99,7 @@ pub fn run() -> Result<()> {
 
     if args_str.is_empty() {
         // If no arguments are provided, we render the help for all commands
-        render_help(&paths, &current_dir, &git_root)?;
+        render_help(&paths, &current_dir, git_root.as_ref())?;
         std::process::exit(0);
     }
 
