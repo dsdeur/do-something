@@ -8,14 +8,14 @@ use shell_escape::escape;
 use std::{
     borrow::Cow,
     io::IsTerminal,
-    path::PathBuf,
+    path::Path,
     process::{Command as ProcessCommand, Stdio},
 };
 
 /// Create a command to run in the shell
 fn create_command(
     command: &str,
-    work_dir: Option<&PathBuf>,
+    work_dir: Option<impl AsRef<Path>>,
     args: &[&str],
 ) -> Result<ProcessCommand> {
     let mut command_str = command.to_string();
@@ -56,6 +56,20 @@ pub enum Runner {
 }
 
 impl Runner {
+    /// Create a new command runner
+    pub fn new_command(
+        command: &String,
+        path: Option<impl AsRef<Path>>,
+        args: &[&str],
+    ) -> Result<Self> {
+        let cmd = create_command(command, path, args)?;
+
+        Ok(Runner::Command(
+            format!("{} {}", command, args.join(" ")),
+            Box::new(cmd),
+        ))
+    }
+
     /// Get the command runner for a given command definition
     /// - Returns a `Runner` enum that can either be a command to run or a help group
     /// - If a group has a default command, it will create a command runner for that
@@ -67,23 +81,16 @@ impl Runner {
         command: &Command,
     ) -> Result<Self> {
         let path = command.get_command_root_path(parents)?;
-        let extra_args = &target[command_match.keys.len().min(target.len())..];
+        let extra_args = &target[command_match.score..];
 
         let runner = match command {
             Command::Group(Group {
                 default: Some(cmd), ..
-            }) => Runner::Command(
-                format!("{} {}", cmd, extra_args.join(" ")),
-                Box::new(create_command(cmd, path.as_ref(), extra_args)?),
-            ),
-            Command::Inline(cmd) => Runner::Command(
-                format!("{} {}", cmd, extra_args.join(" ")),
-                Box::new(create_command(cmd, path.as_ref(), extra_args)?),
-            ),
-            Command::Config(CommandConfig { command: cmd, .. }) => Runner::Command(
-                format!("{} {}", cmd, extra_args.join(" ")),
-                Box::new(create_command(cmd, path.as_ref(), extra_args)?),
-            ),
+            }) => Runner::new_command(cmd, path.as_ref(), extra_args)?,
+            Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args)?,
+            Command::Config(CommandConfig { command: cmd, .. }) => {
+                Runner::new_command(cmd, path.as_ref(), extra_args)?
+            }
             Command::Group(_group) => Runner::Help,
         };
 
