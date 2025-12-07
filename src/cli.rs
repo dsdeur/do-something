@@ -130,7 +130,7 @@ pub fn run() -> Result<()> {
             let status = command.spawn()?.wait()?;
             std::process::exit(status.code().unwrap_or(1));
         }
-        Runner::Help() => {
+        Runner::Help => {
             let lines = file.get_help_rows_for_match(&last_match, &current_dir, &git_root)?;
             let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
             print_lines(file, lines, max_size);

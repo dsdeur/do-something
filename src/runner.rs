@@ -50,7 +50,7 @@ fn create_command(
 #[derive(Debug)]
 pub enum Runner {
     Command(String, ProcessCommand),
-    Help(),
+    Help,
 }
 
 impl Runner {
@@ -85,7 +85,7 @@ impl Runner {
                 cmd.clone(),
                 create_command(cmd, path.as_ref(), &extra_args)?,
             ),
-            Command::Group(_group) => Runner::Help(),
+            Command::Group(_group) => Runner::Help,
         };
 
         Ok(runner)
