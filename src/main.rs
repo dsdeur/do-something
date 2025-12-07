@@ -9,5 +9,8 @@ mod tui;
 use crate::cli::run;
 
 fn main() {
-    run().unwrap();
+    if let Err(e) = run() {
+        eprintln!("Error: {:#}", e);
+        std::process::exit(1);
+    }
 }

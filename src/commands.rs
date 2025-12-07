@@ -47,7 +47,7 @@ pub enum GroupMode {
 ///
 /// There is a lot of overlap with the group configuration,
 /// these override the group settings.
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CommandConfig {
     /// Optional name for the command, used in help messages.
     pub name: Option<String>,

@@ -28,7 +28,7 @@ pub fn match_command(
         let file = DsFile::from_file(path)?;
         let matches = file.get_matches(&target, &NestingMode::Exclude, &current_dir, &git_root)?;
 
-        if matches.len() > 0 {
+        if !matches.is_empty() {
             match_count += matches.len();
             files.push((file, matches));
         }
@@ -95,7 +95,7 @@ pub fn run() -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let git_root = git_root();
 
-    if parts.len() == 0 {
+    if parts.is_empty() {
         // If no arguments are provided, we render the help for all commands
         render_help(&paths, &current_dir, &git_root)?;
         std::process::exit(0);
@@ -127,12 +127,7 @@ pub fn run() -> Result<()> {
     match runner {
         Runner::Command(cmd_str, mut command) => {
             println!("{}", cmd_str.dim());
-            let status = command
-                .spawn()
-                .expect("Failed to spawn command")
-                .wait()
-                .expect("Failed to wait on command");
-
+            let status = command.spawn()?.wait()?;
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help() => {
