@@ -108,7 +108,7 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
                     "{} {}{} {}",
                     prefix.grey(),
                     groups.dark_blue().bold(),
-                    key.white(),
+                    key.white().bold(),
                     " ".repeat(max_width - length)
                 );
 
