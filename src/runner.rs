@@ -17,7 +17,7 @@ fn create_command(
     command: &str,
     work_dir: Option<impl AsRef<Path>>,
     args: &[&str],
-) -> Result<ProcessCommand> {
+) -> Result<(ProcessCommand, String)> {
     let mut command_str = command.to_string();
 
     for arg in args {
@@ -28,7 +28,7 @@ fn create_command(
     let mut cmd = ProcessCommand::new("sh");
 
     cmd.arg("-c");
-    cmd.arg(command_str);
+    cmd.arg(&command_str);
     cmd.stdin(Stdio::inherit());
     cmd.stdout(Stdio::inherit());
     cmd.stderr(Stdio::inherit());
@@ -43,7 +43,7 @@ fn create_command(
         cmd.env("FORCE_COLOR", "1");
     }
 
-    Ok(cmd)
+    Ok((cmd, command_str))
 }
 
 /// Enum representing the type of command runner
@@ -62,12 +62,8 @@ impl Runner {
         path: Option<impl AsRef<Path>>,
         args: &[&str],
     ) -> Result<Self> {
-        let cmd = create_command(command, path, args)?;
-
-        Ok(Runner::Command(
-            format!("{} {}", command, args.join(" ")),
-            Box::new(cmd),
-        ))
+        let (cmd, cmd_str) = create_command(command, path, args)?;
+        Ok(Runner::Command(cmd_str, Box::new(cmd)))
     }
 
     /// Get the command runner for a given command definition
