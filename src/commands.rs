@@ -101,6 +101,7 @@ pub struct Group {
 
 impl Group {
     /// Walk the group commands recursively, calling `on_command` for each command.
+    #[allow(clippy::type_complexity)]
     pub fn walk_tree<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
@@ -149,6 +150,7 @@ impl Group {
     /// - The path is a vector of strings representing the command keys
     /// - The command definition is the current command being processed
     /// - The parent groups are the groups that lead to the current command
+    #[allow(clippy::type_complexity)]
     pub fn walk_commands<'a>(
         &'a self,
         on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
