@@ -1,6 +1,7 @@
 use crate::{
-    commands::{Command, CommandConfig, Group},
+    command::{Command, CommandConfig},
     ds_file::Match,
+    group::Group,
 };
 use anyhow::Result;
 use shell_escape::escape;

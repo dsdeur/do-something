@@ -1,8 +1,9 @@
 mod cli;
-mod commands;
+mod command;
 mod config;
 mod dir;
 mod ds_file;
+mod group;
 mod help;
 mod runner;
 

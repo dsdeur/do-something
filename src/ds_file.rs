@@ -1,6 +1,7 @@
 use crate::{
-    commands::{Command, CommandConfig, Group, Walk},
+    command::{Command, CommandConfig},
     dir::collapse_to_tilde,
+    group::{Group, Walk},
     help::HelpRow,
 };
 use anyhow::Result;

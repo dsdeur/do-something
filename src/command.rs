@@ -1,10 +1,10 @@
-use crate::{dir::resolve_path, help::HelpRow};
+use crate::{
+    dir::resolve_path,
+    group::{Group, GroupMode},
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 /// Configures when a command or group is available to run.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -27,22 +27,6 @@ pub struct RootConfig {
     pub scope: Option<RootScope>,
 }
 
-/// Allows to flatten groups into their parent namespace
-///
-/// Useful to organize commands without adding extra nesting in the CLI.
-///
-/// For example, if you can't introduce a `ds.json` file in a project, you can define
-/// the commands in a group in your global config:
-/// - Set the root path to the project git root folder, so the commands are run from there.
-/// - Set root scope to `GitRoot` so the commands are only available inside that project.
-/// - Set group mode to Flattened, so the commands are available without the extra step
-///   (e.g. `ds command` instead of `ds group command`).
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub enum GroupMode {
-    Namespaced,
-    Flattened,
-}
-
 /// Configuration for a single command.
 ///
 /// There is a lot of overlap with the group configuration,
@@ -61,146 +45,6 @@ pub struct CommandConfig {
     pub root: Option<RootConfig>,
     /// Optional aliases for the command, used to run it with different names.
     pub aliases: Option<Vec<String>>,
-}
-
-/// Util for tree walking to control the flow of the walk.
-#[derive(PartialEq, Eq)]
-pub enum Walk {
-    Continue,
-    Skip,
-    Stop,
-}
-
-/// A group of commands, that share common configuration.
-///
-/// This is the top-level structure of a `ds.json` file, and can be nested.
-/// If there are multiple files, they are merged together
-/// (configured in `on_conflict` in global config).
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
-pub struct Group {
-    /// Optional name for the group, used in help messages.
-    pub name: Option<String>,
-    /// Optional longer description for the group, used in help messages.
-    pub description: Option<String>,
-    /// Optional default command for the group, if no sub-command is provided.
-    /// If not provided, it will show help for the group.
-    pub default: Option<String>,
-    /// Commands within the group. Can be commands or sub-groups.
-    pub commands: BTreeMap<String, Command>,
-    /// Optional environment keys (not yet implemented).
-    pub envs: Option<Vec<String>>,
-    /// Optional dotenv files options (not yet implemented).
-    pub dotenv_files: Option<BTreeMap<String, String>>,
-    /// Optional root configuration, to define where the group is run from.
-    pub root: Option<RootConfig>,
-    /// Optional group mode, to define if it is namespaced or flattened.
-    pub mode: Option<GroupMode>,
-    /// Optional aliases for the group, used to run it with different names.
-    pub aliases: Option<Vec<String>>,
-}
-
-impl Group {
-    /// Walk the group commands recursively, calling `on_command` for each command.
-    #[allow(clippy::type_complexity)]
-    pub fn walk_tree<'a>(
-        &'a self,
-        keys: &mut Vec<&'a str>,
-        parents: &mut Vec<&'a Group>,
-        on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
-    ) -> Walk {
-        parents.push(self);
-
-        for (key, command) in self.commands.iter() {
-            keys.push(key);
-
-            match on_command(keys, command, parents) {
-                Walk::Continue => (),
-                // Skip the current command, meaning don't process the group
-                Walk::Skip => {
-                    keys.pop();
-                    continue;
-                }
-                // Stop the walk, meaning don't process any more commands
-                Walk::Stop => {
-                    keys.pop();
-                    parents.pop();
-                    return Walk::Stop;
-                }
-            };
-
-            if let Command::Group(group) = command {
-                // If the command is a group, walk through its tree
-                // If the walk returns Stop, we stop processing
-                if group.walk_tree(keys, parents, on_command) == Walk::Stop {
-                    keys.pop();
-                    parents.pop();
-                    return Walk::Stop;
-                }
-            }
-
-            keys.pop();
-        }
-
-        parents.pop();
-        Walk::Continue
-    }
-
-    /// Walk through all commands in the group and its subgroups
-    /// - Calls `on_command` for each command with the current path, command definition, and parent groups
-    /// - The path is a vector of strings representing the command keys
-    /// - The command definition is the current command being processed
-    /// - The parent groups are the groups that lead to the current command
-    #[allow(clippy::type_complexity)]
-    pub fn walk_commands<'a>(
-        &'a self,
-        on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
-    ) {
-        let mut keys = Vec::new();
-        let mut parents = Vec::new();
-        self.walk_tree(&mut keys, &mut parents, on_command);
-    }
-
-    /// Get the help rows for the group and its subgroups
-    pub fn get_help_rows<'a>(
-        &'a self,
-        keys: &mut Vec<&'a str>,
-        parents: &mut Vec<&'a Group>,
-        current_dir: impl AsRef<Path>,
-        git_root: Option<impl AsRef<Path>>,
-    ) -> Result<Vec<HelpRow>> {
-        let mut rows = Vec::new();
-        let mut err = None;
-
-        self.walk_tree(keys, parents, &mut |keys, cmd, parents| {
-            // If the command/group is not in scope, we skip it early to avoid unnecessary processing
-            match cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref()) {
-                Err(_) => {
-                    // Store the error and stop processing
-                    err = Some(anyhow::anyhow!(
-                        "Error determining scope for command: {}",
-                        keys.join(" ")
-                    ));
-                    return Walk::Stop;
-                }
-                Ok(false) => return Walk::Skip,
-                Ok(true) => {}
-            }
-
-            if let Some(command) = cmd.get_command() {
-                let alias_keys = cmd
-                    .get_keys(keys, parents)
-                    .into_iter()
-                    .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
-                    .collect::<Vec<Vec<String>>>();
-
-                rows.push(HelpRow::new(alias_keys, command.to_string()));
-            }
-
-            Walk::Continue
-        });
-
-        err.map_or(Ok(rows), Err)
-    }
 }
 
 /// A command definition in a group commands field.
