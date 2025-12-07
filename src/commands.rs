@@ -1,12 +1,8 @@
-use crate::{
-    dir::{collapse_to_tilde, resolve_path},
-    tui::help::HelpRow,
-};
+use crate::{dir::resolve_path, tui::help::HelpRow};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
-    fs,
     path::{Path, PathBuf},
 };
 
@@ -67,35 +63,6 @@ pub struct CommandConfig {
     pub aliases: Option<Vec<String>>,
 }
 
-/// Calculate the match score for a command based on the provided matches
-/// - The score is the number of levels that match
-/// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
-fn get_match_score(command_keys: &Vec<Vec<&str>>, matches: &[&str], include_nested: bool) -> usize {
-    let mut score = 0;
-
-    for (i, key) in matches.iter().enumerate() {
-        // Rest params, we are not interested in them
-        if i >= command_keys.len() {
-            break;
-        }
-
-        // Check if the key matches any of the command keys
-        if command_keys[i].contains(key) {
-            score += 1;
-        } else {
-            // If it doesn't match, we stop scoring
-            break;
-        }
-    }
-
-    // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
-    if !include_nested && command_keys.len() > matches.len() {
-        return 0;
-    }
-
-    score
-}
-
 /// Util for tree walking to control the flow of the walk.
 #[derive(PartialEq, Eq)]
 pub enum Walk {
@@ -133,30 +100,6 @@ pub struct Group {
 }
 
 impl Group {
-    /// Load a group configuration from a file.
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Option<Self>> {
-        if !path.as_ref().exists() {
-            return Ok(None);
-        }
-
-        let content = fs::read_to_string(&path)?;
-        let mut group: Group = serde_json::from_str(&content)?;
-
-        if group.name.is_none() {
-            group.name = path
-                .as_ref()
-                .file_name()
-                .and_then(|s| s.to_str())
-                .map(|s| s.to_string());
-        }
-
-        if group.description.is_none() {
-            group.description = Some(collapse_to_tilde(path.as_ref()));
-        }
-
-        Ok(Some(group))
-    }
-
     pub fn walk_tree_rev<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
@@ -236,76 +179,6 @@ impl Group {
         });
 
         rows
-    }
-
-    /// Get the commands that match the provided matches
-    /// - `matches` is a vector of strings representing the command path
-    /// - `include_nested` determines if nested commands should be included in the match
-    /// - Returns a vector of tuples containing the match score, command keys, command definition,
-    ///   and parent groups for each matching command
-    pub fn get_matches(
-        &self,
-        matches: Vec<&str>,
-        include_nested: bool,
-        current_dir: impl AsRef<Path>,
-        git_root: &Option<PathBuf>,
-    ) -> Result<Vec<(usize, Vec<String>, Command, Vec<&Group>)>> {
-        let mut commands = Vec::new();
-        let mut err = None;
-
-        self.walk_commands(&mut |key, cmd, parents| {
-            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
-
-            // If the command/group is not in scope, we skip it early to avoid unnecessary processing
-            match is_in_scope {
-                Err(_) => {
-                    // Store the error and stop processing
-                    err = Some(anyhow::anyhow!("Command {} is not in scope", key.join(" ")));
-                    return Walk::Stop;
-                }
-                Ok(false) => return Walk::Skip,
-                Ok(true) => {}
-            }
-
-            // Calculate the match score
-            let command_keys = cmd.get_keys(key, parents);
-            let score = get_match_score(&command_keys, &matches, include_nested);
-
-            if score > 0 {
-                commands.push((
-                    score,
-                    key.iter().map(|s| s.to_string()).collect(),
-                    cmd.clone(),
-                    parents.iter().copied().collect(),
-                ));
-            }
-
-            Walk::Continue
-        });
-
-        // If there was an error, return it
-        if let Some(err) = err {
-            return Err(err);
-        }
-
-        // Determine the maximum depth of the matching commands
-        let max_depth = commands
-            .iter()
-            .map(|(score, _, _, _)| *score)
-            .max()
-            .unwrap_or(0);
-
-        // Filter the most deeply matching commands
-        let res = commands
-            .into_iter()
-            .filter(|(score, _, _, _)| *score == max_depth)
-            .collect();
-
-        Ok(res)
-    }
-
-    pub fn get_command_by_key(&self, key: &str) -> Option<&Command> {
-        return self.commands.get(key);
     }
 }
 
