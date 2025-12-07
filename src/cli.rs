@@ -1,6 +1,5 @@
 use crate::{
-    commands::Group,
-    config::{self, GlobalConfig},
+    config::{self},
     dir::git_root,
     ds_file::{DsFile, Match, NestingMode},
     runner::{Runner, get_runner},
@@ -30,14 +29,6 @@ pub fn match_command(
     for path in paths.iter().rev() {
         let file = DsFile::from_file(path)?;
         let matches = file.get_matches(&target, &NestingMode::Exclude, &current_dir, &git_root)?;
-
-        println!(
-            "Loaded {} commands from {}, {:?}, {:?}",
-            matches.len(),
-            path.to_string_lossy().dim(),
-            matches,
-            config.on_conflict
-        );
 
         if matches.len() > 0 {
             match_count += matches.len();
