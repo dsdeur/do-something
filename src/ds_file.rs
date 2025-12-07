@@ -1,6 +1,7 @@
 use crate::{
-    commands::{Command, Group},
+    commands::{Command, CommandConfig, Group, Walk},
     dir::collapse_to_tilde,
+    tui::help::HelpRow,
 };
 use anyhow::Result;
 use std::{
@@ -12,20 +13,11 @@ pub struct DsFile {
     pub group: Group,
 }
 
-/// Util for tree walking to control the flow of the walk.
-#[derive(PartialEq, Eq)]
-pub enum Walk {
-    Continue,
-    Skip,
-    Stop,
-}
-
 #[derive(Debug)]
 pub struct Match {
     pub score: usize,
     pub keys: Vec<String>,
     pub alias_keys: Vec<Vec<String>>,
-    pub command: Command,
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -39,7 +31,7 @@ impl Match {
     /// - The score is the number of levels that match
     /// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
     pub fn from_command(
-        command: &Command,
+        // command: &Command,
         keys: &[&str],
         alias_keys: &Vec<Vec<&str>>,
         target: Vec<&str>,
@@ -76,7 +68,6 @@ impl Match {
                 .iter()
                 .map(|v| v.iter().map(|s| s.to_string()).collect())
                 .collect(),
-            command: command.clone(),
         })
     }
 }
@@ -109,83 +100,42 @@ impl DsFile {
         Ok(Self { group })
     }
 
-    fn walk_tree_rev<'a>(
-        group: &'a Group,
-        keys: &mut Vec<&'a str>,
-        parents: &mut Vec<&'a Group>,
-        on_command: &mut dyn FnMut(&[&str], &Command, &[&Group]) -> Walk,
-    ) -> Walk {
-        parents.push(group);
-
-        for (key, command) in group.commands.iter().rev() {
-            keys.push(key);
-
-            match on_command(&keys, command, &parents) {
-                Walk::Continue => (),
-                // Skip the current command, meaning don't process the group
-                Walk::Skip => {
-                    keys.pop();
-                    continue;
-                }
-                // Stop the walk, meaning don't process any more commands
-                Walk::Stop => {
-                    keys.pop();
-                    parents.pop();
-                    return Walk::Stop;
-                }
-            };
-
-            if let Command::Group(group) = command {
-                // If the command is a group, walk through its tree
-                // If the walk returns Stop, we stop processing
-                if DsFile::walk_tree_rev(group, keys, parents, on_command) == Walk::Stop {
-                    keys.pop();
-                    parents.pop();
-                    return Walk::Stop;
-                }
-            }
-
-            keys.pop();
-        }
-
-        parents.pop();
-        Walk::Continue
-    }
-
-    /// Walk through all commands in the group and its subgroups in reverse order.
-    /// - Calls `on_command` for each command with the current path, command definition, and parent groups
-    /// - The path is a vector of strings representing the command keys
-    /// - The command definition is the current command being processed
-    /// - The parent groups are the groups that lead to the current command
-    pub fn walk_commands<'a>(
-        &'a self,
-        on_command: &mut dyn FnMut(&[&str], &Command, &[&Group]) -> Walk,
-    ) {
-        let mut keys = Vec::new();
-        let mut parents = Vec::new();
-        DsFile::walk_tree_rev(&self.group, &mut keys, &mut parents, on_command);
-    }
-
-    /// Get all parents for the given keys
-    pub fn groups_from_keys(&self, keys: &Vec<String>) -> Vec<&Group> {
+    pub fn command_from_keys(&self, keys: &Vec<String>) -> Result<(&Command, Vec<&Group>)> {
         let mut parents = Vec::new();
         parents.push(&self.group);
 
+        let mut command = None;
+
         for key in keys {
-            parents
-                .last()
-                .and_then(|g| g.get_command_by_key(key))
-                .and_then(|cmd| {
-                    if let Command::Group(group) = cmd {
-                        parents.push(group);
-                        Some(())
-                    } else {
-                        None
-                    }
-                });
+            println!(
+                "Looking for key: {}, in keys: {:?}",
+                key,
+                self.group.commands.keys()
+            );
+            if let Some(cmd) = parents.last().unwrap().commands.get(key) {
+                command = Some(cmd);
+
+                if let Command::Group(group) = cmd {
+                    parents.push(group);
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "No command found for keys: {}",
+                    keys.join(" ")
+                ));
+            }
         }
 
-        parents
+        println!("Command found: {:?}, parents: {:?}", command, parents);
+
+        if let Some(command) = command {
+            Ok((command, parents))
+        } else {
+            Err(anyhow::anyhow!(
+                "No command found for keys: {}",
+                keys.join(" ")
+            ))
+        }
     }
 
     /// Get the commands that match the provided matches
@@ -203,7 +153,7 @@ impl DsFile {
         let mut commands = Vec::new();
         let mut err = None;
 
-        self.walk_commands(&mut |keys, cmd, parents| {
+        self.group.walk_commands(&mut |keys, cmd, parents| {
             let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
 
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
@@ -222,7 +172,7 @@ impl DsFile {
 
             // Calculate the match score
             let command_keys = cmd.get_keys(keys, parents);
-            let m = Match::from_command(cmd, keys, &command_keys, matches.clone(), &nesting_mode);
+            let m = Match::from_command(keys, &command_keys, matches.clone(), &nesting_mode);
 
             if let Some(m) = m {
                 commands.push(m);
@@ -250,5 +200,27 @@ impl DsFile {
             .collect();
 
         Ok(res)
+    }
+
+    pub fn get_help_rows_for_match(&self, match_: &Match) -> Result<Vec<HelpRow>> {
+        let (command, parents) = self.command_from_keys(&match_.keys)?;
+        let keys = match_.keys.clone();
+        let mut keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
+        let mut parents = parents;
+
+        match command {
+            Command::Command(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
+            Command::CommandConfig(CommandConfig { command, .. }) => Ok(vec![HelpRow::new(
+                match_.alias_keys.clone(),
+                command.clone(),
+            )]),
+            Command::Group(group) => Ok(group.get_help_rows(&mut keys, &mut parents)),
+        }
+    }
+
+    pub fn get_help_rows(&self) -> Vec<HelpRow> {
+        let mut keys = Vec::new();
+        let mut parents = Vec::new();
+        self.group.get_help_rows(&mut keys, &mut parents)
     }
 }

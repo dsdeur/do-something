@@ -85,14 +85,15 @@ pub fn get_runner(
     command_match: &Match,
     parents: &[&Group],
     target: &Vec<String>,
+    command: &Command,
 ) -> Result<Runner> {
-    let path = get_command_root_path(&command_match.command, parents)?;
+    let path = get_command_root_path(command, parents)?;
     let extra_args = target
         .iter()
         .skip(command_match.keys.len())
         .collect::<Vec<_>>();
 
-    let runner = match &command_match.command {
+    let runner = match command {
         Command::Group(Group {
             default: Some(cmd), ..
         }) => Runner::Command(

@@ -73,34 +73,30 @@ pub fn run() -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let git_root = git_root();
 
-    // Have to get the groups first, as otherwise having borrowing trouble
-    // We reverse the paths to get the most specific ones first,
-    // as in override mode we want the last one to win
-    // let mut groups = Vec::new();
-    // for path in paths.iter().rev() {
-    //     let group = loader.load_file(path);
-
-    //     if let Some(group) = Group::from_file(&path)? {
-    //         groups.push(group);
-    //     }
-    // }
-
     if parts.len() == 0 {
-        // let mut group_lines = Vec::new();
+        let mut groups = Vec::new();
 
-        // for group in groups.iter().rev() {
-        //     group_lines.push(group.print_group_help(vec![], &current_dir, &git_root));
-        // }
+        for path in paths.iter().rev() {
+            let file = DsFile::from_file(path)?;
+            let rows = file.get_help_rows();
 
-        // let max_size = group_lines
-        //     .iter()
-        //     .map(|(_title, _description, _lines, len)| *len)
-        //     .max()
-        //     .unwrap_or(0);
+            // If the group has no commands, we skip it
+            if rows.is_empty() {
+                continue;
+            }
 
-        // for (title, description, lines, _max_size) in group_lines {
-        //     print_lines(title, description.unwrap_or_default(), lines, max_size);
-        // }
+            groups.push((file, rows))
+        }
+
+        let max_size = groups
+            .iter()
+            .flat_map(|(_file, rows)| rows.iter().map(|row| row.len()))
+            .max()
+            .unwrap_or(0);
+
+        for (file, rows) in groups {
+            print_lines(&file, rows, max_size);
+        }
 
         std::process::exit(0);
     }
@@ -122,8 +118,8 @@ pub fn run() -> Result<()> {
         .first()
         .ok_or_else(|| anyhow::anyhow!("No matching command found in file",))?;
 
-    let parents = file.groups_from_keys(&first_match.keys);
-    let runner = get_runner(&first_match, &parents, &parts)?;
+    let (command, parents) = file.command_from_keys(&first_match.keys)?;
+    let runner = get_runner(&first_match, &parents, &parts, command)?;
 
     // Execute the runner
     match runner {
@@ -138,8 +134,9 @@ pub fn run() -> Result<()> {
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help() => {
-            // let lines = group.print_group_help(keys, current_dir, &git_root);
-            // print_lines(lines.0, lines.1.unwrap_or_default(), lines.2, lines.3);
+            let lines = file.get_help_rows_for_match(&first_match)?;
+            let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
+            print_lines(file, lines, max_size);
             std::process::exit(0);
         }
     }

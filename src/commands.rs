@@ -1,4 +1,7 @@
-use crate::dir::{collapse_to_tilde, resolve_path};
+use crate::{
+    dir::{collapse_to_tilde, resolve_path},
+    tui::help::HelpRow,
+};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{
@@ -154,7 +157,7 @@ impl Group {
         Ok(Some(group))
     }
 
-    fn walk_tree<'a>(
+    pub fn walk_tree_rev<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
@@ -162,7 +165,7 @@ impl Group {
     ) -> Walk {
         parents.push(self);
 
-        for (key, command) in self.commands.iter() {
+        for (key, command) in self.commands.iter().rev() {
             keys.push(key);
 
             match on_command(&keys, command, parents) {
@@ -183,7 +186,7 @@ impl Group {
             if let Command::Group(group) = command {
                 // If the command is a group, walk through its tree
                 // If the walk returns Stop, we stop processing
-                if group.walk_tree(keys, parents, on_command) == Walk::Stop {
+                if group.walk_tree_rev(keys, parents, on_command) == Walk::Stop {
                     keys.pop();
                     parents.pop();
                     return Walk::Stop;
@@ -208,7 +211,31 @@ impl Group {
     ) {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
-        self.walk_tree(&mut keys, &mut parents, on_command);
+        self.walk_tree_rev(&mut keys, &mut parents, on_command);
+    }
+
+    pub fn get_help_rows<'a>(
+        &'a self,
+        keys: &mut Vec<&'a str>,
+        parents: &mut Vec<&'a Group>,
+    ) -> Vec<HelpRow> {
+        let mut rows = Vec::new();
+
+        self.walk_tree_rev(keys, parents, &mut |keys, cmd, parents| {
+            if let Some(command) = cmd.get_command() {
+                let alias_keys = cmd
+                    .get_keys(keys, &parents)
+                    .into_iter()
+                    .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
+                    .collect::<Vec<Vec<String>>>();
+
+                rows.push(HelpRow::new(alias_keys, command));
+            }
+
+            Walk::Continue
+        });
+
+        rows
     }
 
     /// Get the commands that match the provided matches
