@@ -3,8 +3,8 @@ mod commands;
 mod config;
 mod dir;
 mod ds_file;
+mod help;
 mod runner;
-mod tui;
 
 use crate::cli::run;
 

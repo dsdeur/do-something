@@ -1,4 +1,4 @@
-use crate::{dir::resolve_path, tui::help::HelpRow};
+use crate::{dir::resolve_path, help::HelpRow};
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{

@@ -14,7 +14,7 @@ use std::{
 fn create_command(
     command: &str,
     work_dir: Option<&PathBuf>,
-    args: &Vec<&String>,
+    args: &[&str],
 ) -> Result<ProcessCommand> {
     let mut command_str = command.to_string();
 
@@ -61,30 +61,22 @@ impl Runner {
     pub fn from_match(
         command_match: &Match,
         parents: &[&Group],
-        target: &Vec<String>,
+        target: &[&str],
         command: &Command,
     ) -> Result<Self> {
         let path = command.get_command_root_path(parents)?;
-        let extra_args = target
-            .iter()
-            .skip(command_match.keys.len())
-            .collect::<Vec<_>>();
+        let extra_args = &target[command_match.keys.len()..];
 
         let runner = match command {
             Command::Group(Group {
                 default: Some(cmd), ..
-            }) => Runner::Command(
-                cmd.clone(),
-                create_command(cmd, path.as_ref(), &extra_args)?,
-            ),
-            Command::Command(cmd) => Runner::Command(
-                cmd.clone(),
-                create_command(cmd, path.as_ref(), &extra_args)?,
-            ),
-            Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
-                cmd.clone(),
-                create_command(cmd, path.as_ref(), &extra_args)?,
-            ),
+            }) => Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), extra_args)?),
+            Command::Command(cmd) => {
+                Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), extra_args)?)
+            }
+            Command::CommandConfig(CommandConfig { command: cmd, .. }) => {
+                Runner::Command(cmd.clone(), create_command(cmd, path.as_ref(), extra_args)?)
+            }
             Command::Group(_group) => Runner::Help,
         };
 

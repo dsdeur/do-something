@@ -1,7 +1,7 @@
 use crate::{
     commands::{Command, CommandConfig, Group, Walk},
     dir::collapse_to_tilde,
-    tui::help::HelpRow,
+    help::HelpRow,
 };
 use anyhow::Result;
 use std::{
@@ -24,11 +24,7 @@ impl Match {
     /// Calculate the match score for a command based on the provided matches
     /// - The score is the number of levels that match
     /// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
-    pub fn from_command(
-        keys: &[&str],
-        alias_keys: &Vec<Vec<&str>>,
-        target: Vec<&str>,
-    ) -> Option<Self> {
+    pub fn from_command(keys: &[&str], alias_keys: &[Vec<&str>], target: &[&str]) -> Option<Self> {
         let mut score = 0;
 
         for (i, key) in target.iter().enumerate() {
@@ -129,7 +125,7 @@ impl DsFile {
     ///   and parent groups for each matching command
     pub fn get_matches(
         &self,
-        matches: &Vec<&str>,
+        target: &[&str],
         current_dir: impl AsRef<Path>,
         git_root: &Option<PathBuf>,
     ) -> Result<Vec<Match>> {
@@ -155,7 +151,7 @@ impl DsFile {
 
             // Calculate the match score
             let command_keys = cmd.get_keys(keys, parents);
-            let m = Match::from_command(keys, &command_keys, matches.clone());
+            let m = Match::from_command(keys, &command_keys, target);
 
             if let Some(m) = m {
                 commands.push(m);

@@ -2,8 +2,8 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match},
+    help::print_lines,
     runner::Runner,
-    tui::help::print_lines,
 };
 use anyhow::Result;
 use crossterm::style::Stylize;
@@ -15,8 +15,8 @@ use std::{
 /// Find and match a command in the provided paths
 pub fn match_command(
     config: &config::GlobalConfig,
-    paths: &Vec<PathBuf>,
-    target: Vec<&str>,
+    paths: &[PathBuf],
+    target: &[&str],
     current_dir: impl AsRef<Path>,
     git_root: &Option<PathBuf>,
 ) -> Result<Vec<(DsFile, Vec<Match>)>> {
@@ -26,7 +26,7 @@ pub fn match_command(
 
     for path in paths.iter().rev() {
         let file = DsFile::from_file(path)?;
-        let matches = file.get_matches(&target, &current_dir, &git_root)?;
+        let matches = file.get_matches(target, &current_dir, &git_root)?;
 
         if !matches.is_empty() {
             match_count += matches.len();
@@ -51,7 +51,7 @@ pub fn match_command(
 
 /// Render the help for all commands
 pub fn render_help(
-    paths: &Vec<PathBuf>,
+    paths: &[PathBuf],
     current_dir: impl AsRef<Path>,
     git_root: &Option<PathBuf>,
 ) -> Result<()> {
@@ -86,6 +86,7 @@ pub fn render_help(
 pub fn run() -> Result<()> {
     // Get the command line arguments, skipping the first one (the program name)
     let parts: Vec<String> = env::args().skip(1).collect();
+    let parts: Vec<&str> = parts.iter().map(|s| s.as_str()).collect();
 
     // Load the global configuration
     let config = config::GlobalConfig::load()?;
@@ -102,13 +103,7 @@ pub fn run() -> Result<()> {
     }
 
     // Get the runner based on the provided arguments
-    let matches = match_command(
-        &config,
-        &paths,
-        parts.iter().map(|s| s.as_str()).collect(),
-        &current_dir,
-        &git_root,
-    )?;
+    let matches = match_command(&config, &paths, &parts, &current_dir, &git_root)?;
 
     // Get the first match, as we reverse iterate
     let (file, matches) = matches
