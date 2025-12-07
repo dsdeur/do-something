@@ -190,9 +190,8 @@ impl DsFile {
         current_dir: impl AsRef<Path>,
         git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<HelpRow>> {
-        let (command, parents) = self.command_from_keys(&match_.keys)?;
+        let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys = match_.keys.iter().map(|s| s.as_str()).collect();
-        let mut parents = parents;
 
         match command {
             Command::Inline(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
