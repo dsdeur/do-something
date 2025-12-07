@@ -73,15 +73,15 @@ impl Runner {
             Command::Group(Group {
                 default: Some(cmd), ..
             }) => Runner::Command(
-                cmd.clone(),
+                format!("{} {}", cmd, extra_args.join(" ")),
                 Box::new(create_command(cmd, path.as_ref(), extra_args)?),
             ),
             Command::Basic(cmd) => Runner::Command(
-                cmd.clone(),
+                format!("{} {}", cmd, extra_args.join(" ")),
                 Box::new(create_command(cmd, path.as_ref(), extra_args)?),
             ),
             Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
-                cmd.clone(),
+                format!("{} {}", cmd, extra_args.join(" ")),
                 Box::new(create_command(cmd, path.as_ref(), extra_args)?),
             ),
             Command::Group(_group) => Runner::Help,

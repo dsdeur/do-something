@@ -42,8 +42,8 @@ impl Match {
             }
         }
 
-        // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
-        let is_nested = alias_keys.len() > target.len();
+        // If we are not including nested commands, we need to match the score to the alias keys length
+        let is_nested = score < alias_keys.len();
 
         // If the score is 0, or if we are in nested mode and the alias keys are longer than the matches, we return None
         if is_nested || score == 0 {
@@ -133,7 +133,7 @@ impl DsFile {
         current_dir: impl AsRef<Path>,
         git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<Match>> {
-        let mut commands = Vec::new();
+        let mut matches = Vec::new();
         let mut err = None;
 
         self.group.walk_commands(&mut |keys, cmd, parents| {
@@ -156,7 +156,7 @@ impl DsFile {
             let m = Match::from_command(keys, &command_keys, target);
 
             if let Some(m) = m {
-                commands.push(m);
+                matches.push(m);
             }
 
             Walk::Continue
@@ -168,14 +168,14 @@ impl DsFile {
         }
 
         // Determine the maximum depth of the matching commands
-        let max_depth = commands
+        let max_depth = matches
             .iter()
             .map(|Match { score, .. }| *score)
             .max()
             .unwrap_or(0);
 
         // Filter the most deeply matching commands
-        let res = commands
+        let res = matches
             .into_iter()
             .filter(|Match { score, .. }| *score == max_depth)
             .collect();
