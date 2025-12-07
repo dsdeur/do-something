@@ -152,7 +152,7 @@ impl DsFile {
                 Err(_) => {
                     // Store the error and stop processing
                     err = Some(anyhow::anyhow!(
-                        "Command {} is not in scope",
+                        "Error determining scope for command: {}",
                         keys.join(" ")
                     ));
                     return Walk::Stop;
@@ -193,26 +193,42 @@ impl DsFile {
         Ok(res)
     }
 
-    pub fn get_help_rows_for_match(&self, match_: &Match) -> Result<Vec<HelpRow>> {
+    pub fn get_help_rows_for_match(
+        &self,
+        match_: &Match,
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
+    ) -> Result<Vec<HelpRow>> {
         let (command, parents) = self.command_from_keys(&match_.keys)?;
         let keys = match_.keys.clone();
         let mut keys: Vec<&str> = keys.iter().map(|s| s.as_str()).collect();
         let mut parents = parents;
 
         match command {
-            Command::Command(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
+            Command::Command(cmd) => Ok(vec![HelpRow::new(
+                match_.alias_keys.clone(),
+                cmd.clone(),
+                true,
+            )]),
             Command::CommandConfig(CommandConfig { command, .. }) => Ok(vec![HelpRow::new(
                 match_.alias_keys.clone(),
                 command.clone(),
+                true,
             )]),
-            Command::Group(group) => Ok(group.get_help_rows(&mut keys, &mut parents)),
+            Command::Group(group) => {
+                group.get_help_rows(&mut keys, &mut parents, current_dir, git_root)
+            }
         }
     }
 
-    pub fn get_help_rows(&self) -> Vec<HelpRow> {
+    pub fn get_help_rows(
+        &self,
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
+    ) -> Result<Vec<HelpRow>> {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
-        let lines = self.group.get_help_rows(&mut keys, &mut parents);
-        lines
+        self.group
+            .get_help_rows(&mut keys, &mut parents, current_dir, git_root)
     }
 }

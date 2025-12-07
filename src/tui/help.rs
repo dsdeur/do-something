@@ -7,14 +7,16 @@ pub struct HelpRow {
     pub alias_keys: Vec<Vec<String>>,
     pub prefix: String,
     pub command: String,
+    pub is_in_scope: bool,
 }
 
 impl HelpRow {
-    pub fn new(alias_keys: Vec<Vec<String>>, command: String) -> Self {
+    pub fn new(alias_keys: Vec<Vec<String>>, command: String, is_in_scope: bool) -> Self {
         HelpRow {
             prefix: "ds".to_string(),
             alias_keys,
             command,
+            is_in_scope,
         }
     }
 
@@ -104,23 +106,41 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
         let aliases = row.aliases();
         let prefix = row.prefix;
 
-        if std::io::stdout().is_terminal() {
-            let groups = format!(
-                "{} {}{} {}",
-                prefix.grey(),
-                groups.dark_blue().bold(),
-                key.white(),
-                " ".repeat(max_width - length)
-            );
+        match (std::io::stdout().is_terminal(), row.is_in_scope) {
+            (true, true) => {
+                let groups = format!(
+                    "{} {}{} {}",
+                    prefix.grey(),
+                    groups.dark_blue().bold(),
+                    key.white(),
+                    " ".repeat(max_width - length)
+                );
 
-            println!("{} {}", groups.blue(), row.command.dark_yellow());
+                println!("{} {}", groups.blue(), row.command.dark_yellow());
 
-            if let Some(aliases) = aliases {
-                println!("{}{}", " - ".dim(), aliases.dim());
+                if let Some(aliases) = aliases {
+                    println!("{}{}", " - ".dim(), aliases.dim());
+                }
             }
-        } else {
-            // If not in a terminal, just print the command and path
-            println!("{}{} {}", prefix, groups, key);
+            (true, false) => {
+                let groups = format!(
+                    "{} {}{} {}",
+                    prefix.dim(),
+                    groups.dim().bold(),
+                    key.dim(),
+                    " ".repeat(max_width - length)
+                );
+
+                println!("{} {}", groups.dim(), row.command.dim());
+
+                if let Some(aliases) = aliases {
+                    println!("{}{}", " - ".dim(), aliases.dim());
+                }
+            }
+            (false, _) => {
+                // If not in a terminal, just print the command and path
+                println!("{}{} {}", prefix, groups, key);
+            }
         }
     }
 }

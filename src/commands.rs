@@ -161,24 +161,50 @@ impl Group {
         &'a self,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
-    ) -> Vec<HelpRow> {
+        current_dir: impl AsRef<Path>,
+        git_root: &Option<PathBuf>,
+    ) -> Result<Vec<HelpRow>> {
         let mut rows = Vec::new();
+        let mut err = None;
 
         self.walk_tree(keys, parents, &mut |keys, cmd, parents| {
+            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root);
+
+            // If the command/group is not in scope, we skip it early to avoid unnecessary processing
+            match is_in_scope {
+                Err(_) => {
+                    // Store the error and stop processing
+                    err = Some(anyhow::anyhow!(
+                        "Error determining scope for command: {}",
+                        keys.join(" ")
+                    ));
+                    return Walk::Stop;
+                }
+                Ok(false) => return Walk::Skip,
+                Ok(true) => {}
+            }
+
             if let Some(command) = cmd.get_command() {
+                let in_scope = cmd.is_in_scope(&current_dir, git_root).unwrap_or(false);
+
                 let alias_keys = cmd
                     .get_keys(keys, &parents)
                     .into_iter()
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
 
-                rows.push(HelpRow::new(alias_keys, command));
+                rows.push(HelpRow::new(alias_keys, command, in_scope));
             }
 
             Walk::Continue
         });
 
-        rows
+        // If there was an error, return it
+        if let Some(err) = err {
+            return Err(err);
+        } else {
+            Ok(rows)
+        }
     }
 }
 
@@ -196,20 +222,16 @@ pub enum Command {
 
 impl Command {
     /// Get the root configuration for the command or group,
-    /// falling back to the parent root if not defined.
-    ///
+    /// IMPORTANT!: Only works on the current command, not the parents.
     /// Resolves the root path to an absolute path (including tilde expansion).
-    fn get_root_for_scope(
-        &self,
-        parent_root: Option<RootConfig>,
-    ) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
+    fn get_root(&self) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
         let item_root = match self {
             Command::CommandConfig(cmd) => cmd.root.clone(),
             Command::Group(group) => group.root.clone(),
             _ => None,
         };
 
-        if let Some(root) = item_root.or(parent_root) {
+        if let Some(root) = item_root {
             let path = resolve_path(&root.path)?;
             Ok((Some(root), Some(path)))
         } else {
@@ -218,12 +240,13 @@ impl Command {
     }
 
     /// Check if the command or group is in scope for the current directory/git root.
+    /// IMPORTANT: This only checks the current command, not the parents.
     pub fn is_in_scope(
         &self,
         current_dir: impl AsRef<Path>,
         git_root: &Option<PathBuf>,
     ) -> Result<bool> {
-        let root = self.get_root_for_scope(None)?;
+        let root = self.get_root()?;
 
         if let (Some(root_config), Some(target_path)) = root {
             match root_config.scope {
