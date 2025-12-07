@@ -46,6 +46,32 @@ impl HelpRow {
 
         len
     }
+
+    pub fn aliases(&self) -> Option<String> {
+        if !self.alias_keys.iter().any(|keys| keys.len() > 1) {
+            return None;
+        }
+
+        let aliases = self.alias_keys.iter().map(|keys| {
+            if keys.len() == 1 {
+                return keys[0].clone();
+            }
+
+            let keys = keys
+                .iter()
+                .skip(1)
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>();
+
+            if keys.len() == 1 {
+                return keys[0].clone();
+            }
+
+            format!("({})", keys.join("|"))
+        });
+
+        Some(aliases.collect::<Vec<_>>().join(" "))
+    }
 }
 
 pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
@@ -75,20 +101,26 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
 
         let key = row.get_key();
         let length = row.len();
+        let aliases = row.aliases();
+        let prefix = row.prefix;
 
         if std::io::stdout().is_terminal() {
             let groups = format!(
                 "{} {}{} {}",
-                row.prefix.grey(),
+                prefix.grey(),
                 groups.dark_blue().bold(),
                 key.white(),
                 " ".repeat(max_width - length)
             );
 
             println!("{} {}", groups.blue(), row.command.dark_yellow());
+
+            if let Some(aliases) = aliases {
+                println!("{}{}", " - ".dim(), aliases.dim());
+            }
         } else {
             // If not in a terminal, just print the command and path
-            println!("{}{} {}", row.prefix, groups, key);
+            println!("{}{} {}", prefix, groups, key);
         }
     }
 }
