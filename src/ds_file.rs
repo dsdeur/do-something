@@ -130,10 +130,8 @@ impl DsFile {
         let mut err = None;
 
         self.group.walk_commands(&mut |keys, cmd, parents| {
-            let is_in_scope = cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref());
-
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
-            match is_in_scope {
+            match cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref()) {
                 Err(_) => {
                     // Store the error and stop processing
                     err = Some(anyhow::anyhow!(
