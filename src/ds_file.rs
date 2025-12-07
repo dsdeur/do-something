@@ -20,7 +20,6 @@ pub struct Match {
 impl Match {
     /// Calculate the match score for a command based on the provided matches
     /// - The score is the number of levels that match
-    /// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
     pub fn from_command(keys: &[&str], alias_keys: &[Vec<&str>], target: &[&str]) -> Option<Self> {
         let mut score = 0;
 
@@ -91,7 +90,8 @@ impl DsFile {
         let mut command = None;
 
         for key in keys {
-            if let Some(cmd) = parents.last().unwrap_or(&&self.group).commands.get(key) {
+            let group = parents.last().copied().unwrap_or(&self.group);
+            if let Some(cmd) = group.commands.get(key) {
                 command = Some(cmd);
 
                 if let Command::Group(group) = cmd {
