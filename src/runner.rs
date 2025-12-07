@@ -1,6 +1,5 @@
 use crate::{
     commands::{Command, CommandConfig, Group},
-    dir::resolve_path,
     ds_file::Match,
 };
 use anyhow::Result;
@@ -10,30 +9,6 @@ use std::{
     path::PathBuf,
     process::{Command as ProcessCommand, Stdio},
 };
-
-/// Get the root path and configuration for a command
-/// - Returns a tuple of the root configuration and the resolved path
-/// - Looks at the command first, then at the parent groups
-///
-/// This one is different from CommandDefinition::get_command_root, as it looks
-/// at all parents, not just the immediate parent group.
-pub fn get_command_root_path<'a>(
-    command: &'a Command,
-    parents: &[&'a Group],
-) -> Result<Option<PathBuf>> {
-    let command_root = match command {
-        Command::CommandConfig(cmd) => cmd.root.as_ref(),
-        Command::Group(group) => group.root.as_ref(),
-        _ => None,
-    };
-
-    if let Some(root) = command_root.or(parents.iter().rev().find_map(|g| g.root.as_ref())) {
-        let path = resolve_path(&root.path)?;
-        Ok(Some(path))
-    } else {
-        Ok(None)
-    }
-}
 
 fn create_command(
     command: &str,
@@ -77,39 +52,41 @@ pub enum Runner {
     Help(),
 }
 
-/// Get the command runner for a given command definition
-/// - Returns a `Runner` enum that can either be a command to run or a help group
-/// - If a group has a default command, it will create a command runner for that
-/// - It handles root paths and arguments
-pub fn get_runner(
-    command_match: &Match,
-    parents: &[&Group],
-    target: &Vec<String>,
-    command: &Command,
-) -> Result<Runner> {
-    let path = get_command_root_path(command, parents)?;
-    let extra_args = target
-        .iter()
-        .skip(command_match.keys.len())
-        .collect::<Vec<_>>();
+impl Runner {
+    /// Get the command runner for a given command definition
+    /// - Returns a `Runner` enum that can either be a command to run or a help group
+    /// - If a group has a default command, it will create a command runner for that
+    /// - It handles root paths and arguments
+    pub fn from_match(
+        command_match: &Match,
+        parents: &[&Group],
+        target: &Vec<String>,
+        command: &Command,
+    ) -> Result<Self> {
+        let path = command.get_command_root_path(parents)?;
+        let extra_args = target
+            .iter()
+            .skip(command_match.keys.len())
+            .collect::<Vec<_>>();
 
-    let runner = match command {
-        Command::Group(Group {
-            default: Some(cmd), ..
-        }) => Runner::Command(
-            cmd.clone(),
-            create_command(cmd, path.as_ref(), &extra_args)?,
-        ),
-        Command::Command(cmd) => Runner::Command(
-            cmd.clone(),
-            create_command(cmd, path.as_ref(), &extra_args)?,
-        ),
-        Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
-            cmd.clone(),
-            create_command(cmd, path.as_ref(), &extra_args)?,
-        ),
-        Command::Group(_group) => Runner::Help(),
-    };
+        let runner = match command {
+            Command::Group(Group {
+                default: Some(cmd), ..
+            }) => Runner::Command(
+                cmd.clone(),
+                create_command(cmd, path.as_ref(), &extra_args)?,
+            ),
+            Command::Command(cmd) => Runner::Command(
+                cmd.clone(),
+                create_command(cmd, path.as_ref(), &extra_args)?,
+            ),
+            Command::CommandConfig(CommandConfig { command: cmd, .. }) => Runner::Command(
+                cmd.clone(),
+                create_command(cmd, path.as_ref(), &extra_args)?,
+            ),
+            Command::Group(_group) => Runner::Help(),
+        };
 
-    Ok(runner)
+        Ok(runner)
+    }
 }

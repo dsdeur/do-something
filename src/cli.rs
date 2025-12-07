@@ -2,7 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match, NestingMode},
-    runner::{Runner, get_runner},
+    runner::Runner,
     tui::help::print_lines,
 };
 use anyhow::Result;
@@ -110,7 +110,7 @@ pub fn run() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("No matching command found in file",))?;
 
     let (command, parents) = file.command_from_keys(&last_match.keys)?;
-    let runner = get_runner(&last_match, &parents, &parts, command)?;
+    let runner = Runner::from_match(&last_match, &parents, &parts, command)?;
 
     // Execute the runner
     match runner {

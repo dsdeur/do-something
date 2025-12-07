@@ -205,15 +205,10 @@ impl DsFile {
         let mut parents = parents;
 
         match command {
-            Command::Command(cmd) => Ok(vec![HelpRow::new(
-                match_.alias_keys.clone(),
-                cmd.clone(),
-                true,
-            )]),
+            Command::Command(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
             Command::CommandConfig(CommandConfig { command, .. }) => Ok(vec![HelpRow::new(
                 match_.alias_keys.clone(),
                 command.clone(),
-                true,
             )]),
             Command::Group(group) => {
                 group.get_help_rows(&mut keys, &mut parents, current_dir, git_root)

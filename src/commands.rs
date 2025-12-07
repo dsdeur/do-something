@@ -157,6 +157,7 @@ impl Group {
         self.walk_tree(&mut keys, &mut parents, on_command);
     }
 
+    /// Get the help rows for the group and its subgroups
     pub fn get_help_rows<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
@@ -185,15 +186,13 @@ impl Group {
             }
 
             if let Some(command) = cmd.get_command() {
-                let in_scope = cmd.is_in_scope(&current_dir, git_root).unwrap_or(false);
-
                 let alias_keys = cmd
                     .get_keys(keys, &parents)
                     .into_iter()
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
 
-                rows.push(HelpRow::new(alias_keys, command, in_scope));
+                rows.push(HelpRow::new(alias_keys, command));
             }
 
             Walk::Continue
@@ -221,8 +220,32 @@ pub enum Command {
 }
 
 impl Command {
+    /// Get the root path and configuration for the command
+    /// - Returns a tuple of the root configuration and the resolved path
+    /// - Looks at the command first, then at the parent groups
+    ///
+    /// This one is different from CommandDefinition::get_command_root, as it looks
+    /// at all parents, not just the immediate parent group.
+    pub fn get_command_root_path<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
+        let command_root = match self {
+            Command::CommandConfig(cmd) => cmd.root.as_ref(),
+            Command::Group(group) => group.root.as_ref(),
+            _ => None,
+        };
+
+        if let Some(root) = command_root.or(parents.iter().rev().find_map(|g| g.root.as_ref())) {
+            let path = resolve_path(&root.path)?;
+            Ok(Some(path))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Get the root configuration for the command or group,
-    /// IMPORTANT!: Only works on the current command, not the parents.
+    ///
+    /// IMPORTANT!: Unlike `get_command_root_path`, this does not resolve the parents
+    /// this means it can only be used when walking the tree, and handling each group.
+    ///
     /// Resolves the root path to an absolute path (including tilde expansion).
     fn get_root(&self) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
         let item_root = match self {
@@ -240,7 +263,9 @@ impl Command {
     }
 
     /// Check if the command or group is in scope for the current directory/git root.
-    /// IMPORTANT: This only checks the current command, not the parents.
+    ///
+    /// IMPORTANT!: This does not resolve the parents this means it can
+    /// only be used when walking the tree, and handling each group.
     pub fn is_in_scope(
         &self,
         current_dir: impl AsRef<Path>,
@@ -334,6 +359,7 @@ impl Command {
         parent_keys
     }
 
+    /// Get the command string for the command definition
     pub fn get_command(&self) -> Option<String> {
         match self {
             Command::Command(cmd) => Some(cmd.clone()),
