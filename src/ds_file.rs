@@ -107,11 +107,6 @@ impl DsFile {
         let mut command = None;
 
         for key in keys {
-            println!(
-                "Looking for key: {}, in keys: {:?}",
-                key,
-                self.group.commands.keys()
-            );
             if let Some(cmd) = parents.last().unwrap().commands.get(key) {
                 command = Some(cmd);
 
@@ -125,8 +120,6 @@ impl DsFile {
                 ));
             }
         }
-
-        println!("Command found: {:?}, parents: {:?}", command, parents);
 
         if let Some(command) = command {
             Ok((command, parents))
