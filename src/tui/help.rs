@@ -59,11 +59,7 @@ impl HelpRow {
                 return keys[0].clone();
             }
 
-            let keys = keys
-                .iter()
-                .skip(1)
-                .map(|s| s.to_string())
-                .collect::<Vec<_>>();
+            let keys = keys.iter().map(|s| s.to_string()).collect::<Vec<_>>();
 
             if keys.len() == 1 {
                 return keys[0].clone();
