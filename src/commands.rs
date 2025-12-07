@@ -199,12 +199,7 @@ impl Group {
             Walk::Continue
         });
 
-        // If there was an error, return it
-        if let Some(err) = err {
-            Err(err)
-        } else {
-            Ok(rows)
-        }
+        err.map_or(Ok(rows), Err)
     }
 }
 
