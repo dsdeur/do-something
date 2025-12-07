@@ -127,7 +127,9 @@ impl GlobalConfig {
 
         for p in paths {
             if seen.insert(p.clone()) {
-                deduped.push(p);
+                if p.exists() {
+                    deduped.push(p);
+                }
             }
         }
 
