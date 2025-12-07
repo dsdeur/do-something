@@ -101,13 +101,11 @@ impl DsFile {
     }
 
     pub fn command_from_keys(&self, keys: &Vec<String>) -> Result<(&Command, Vec<&Group>)> {
-        let mut parents = Vec::new();
-        parents.push(&self.group);
-
+        let mut parents: Vec<&Group> = Vec::new();
         let mut command = None;
 
         for key in keys {
-            if let Some(cmd) = parents.last().unwrap().commands.get(key) {
+            if let Some(cmd) = parents.last().unwrap_or(&&self.group).commands.get(key) {
                 command = Some(cmd);
 
                 if let Command::Group(group) = cmd {
@@ -214,6 +212,7 @@ impl DsFile {
     pub fn get_help_rows(&self) -> Vec<HelpRow> {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
-        self.group.get_help_rows(&mut keys, &mut parents)
+        let lines = self.group.get_help_rows(&mut keys, &mut parents);
+        lines
     }
 }

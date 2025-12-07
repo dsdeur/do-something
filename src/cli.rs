@@ -104,13 +104,13 @@ pub fn run() -> Result<()> {
         .first()
         .ok_or_else(|| anyhow::anyhow!("No matching command found for: {}", parts.join(" ")))?;
 
-    // Get the runner for the first match
-    let first_match = matches
-        .first()
+    // Get the runner for the last match
+    let last_match = matches
+        .last()
         .ok_or_else(|| anyhow::anyhow!("No matching command found in file",))?;
 
-    let (command, parents) = file.command_from_keys(&first_match.keys)?;
-    let runner = get_runner(&first_match, &parents, &parts, command)?;
+    let (command, parents) = file.command_from_keys(&last_match.keys)?;
+    let runner = get_runner(&last_match, &parents, &parts, command)?;
 
     // Execute the runner
     match runner {
@@ -125,7 +125,8 @@ pub fn run() -> Result<()> {
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help() => {
-            let lines = file.get_help_rows_for_match(&first_match)?;
+            let lines = file.get_help_rows_for_match(&last_match)?;
+            println!("{:#?}", lines);
             let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
             print_lines(file, lines, max_size);
             std::process::exit(0);

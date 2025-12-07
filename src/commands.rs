@@ -100,7 +100,7 @@ pub struct Group {
 }
 
 impl Group {
-    pub fn walk_tree_rev<'a>(
+    pub fn walk_tree<'a>(
         &'a self,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
@@ -108,7 +108,7 @@ impl Group {
     ) -> Walk {
         parents.push(self);
 
-        for (key, command) in self.commands.iter().rev() {
+        for (key, command) in self.commands.iter() {
             keys.push(key);
 
             match on_command(&keys, command, parents) {
@@ -129,7 +129,7 @@ impl Group {
             if let Command::Group(group) = command {
                 // If the command is a group, walk through its tree
                 // If the walk returns Stop, we stop processing
-                if group.walk_tree_rev(keys, parents, on_command) == Walk::Stop {
+                if group.walk_tree(keys, parents, on_command) == Walk::Stop {
                     keys.pop();
                     parents.pop();
                     return Walk::Stop;
@@ -154,7 +154,7 @@ impl Group {
     ) {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
-        self.walk_tree_rev(&mut keys, &mut parents, on_command);
+        self.walk_tree(&mut keys, &mut parents, on_command);
     }
 
     pub fn get_help_rows<'a>(
@@ -164,8 +164,14 @@ impl Group {
     ) -> Vec<HelpRow> {
         let mut rows = Vec::new();
 
-        self.walk_tree_rev(keys, parents, &mut |keys, cmd, parents| {
+        self.walk_tree(keys, parents, &mut |keys, cmd, parents| {
             if let Some(command) = cmd.get_command() {
+                let parent_aliases = parents
+                    .iter()
+                    .map(|f| f.aliases.clone())
+                    .collect::<Vec<_>>();
+                println!("{:?} aliases {:?}", keys, parent_aliases);
+
                 let alias_keys = cmd
                     .get_keys(keys, &parents)
                     .into_iter()
