@@ -1,7 +1,7 @@
 use crate::{
     config::{self},
     dir::git_root,
-    ds_file::{DsFile, Match, NestingMode},
+    ds_file::{DsFile, Match},
     runner::Runner,
     tui::help::print_lines,
 };
@@ -26,7 +26,7 @@ pub fn match_command(
 
     for path in paths.iter().rev() {
         let file = DsFile::from_file(path)?;
-        let matches = file.get_matches(&target, &NestingMode::Exclude, &current_dir, &git_root)?;
+        let matches = file.get_matches(&target, &current_dir, &git_root)?;
 
         if !matches.is_empty() {
             match_count += matches.len();

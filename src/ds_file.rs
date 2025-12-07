@@ -20,22 +20,14 @@ pub struct Match {
     pub alias_keys: Vec<Vec<String>>,
 }
 
-#[derive(PartialEq, Eq, Debug)]
-pub enum NestingMode {
-    Include,
-    Exclude,
-}
-
 impl Match {
     /// Calculate the match score for a command based on the provided matches
     /// - The score is the number of levels that match
     /// - If `include_nested` is false, the command keys will not be allowed to be longer than the matches
     pub fn from_command(
-        // command: &Command,
         keys: &[&str],
         alias_keys: &Vec<Vec<&str>>,
         target: Vec<&str>,
-        nesting_mode: &NestingMode,
     ) -> Option<Self> {
         let mut score = 0;
 
@@ -52,7 +44,7 @@ impl Match {
         }
 
         // If we are not including nested commands, the key can only be smaller (rest args) or equal to the matches
-        let is_nested = nesting_mode == &NestingMode::Include || alias_keys.len() > target.len();
+        let is_nested = alias_keys.len() > target.len();
 
         // If the score is 0, or if we are in nested mode and the alias keys are longer than the matches, we return None
         if is_nested || score == 0 {
@@ -138,7 +130,6 @@ impl DsFile {
     pub fn get_matches(
         &self,
         matches: &Vec<&str>,
-        nesting_mode: &NestingMode,
         current_dir: impl AsRef<Path>,
         git_root: &Option<PathBuf>,
     ) -> Result<Vec<Match>> {
@@ -164,7 +155,7 @@ impl DsFile {
 
             // Calculate the match score
             let command_keys = cmd.get_keys(keys, parents);
-            let m = Match::from_command(keys, &command_keys, matches.clone(), &nesting_mode);
+            let m = Match::from_command(keys, &command_keys, matches.clone());
 
             if let Some(m) = m {
                 commands.push(m);
