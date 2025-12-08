@@ -57,7 +57,7 @@ pub fn render_help(
 ) -> Result<()> {
     let mut groups = Vec::new();
 
-    for path in paths.iter().rev() {
+    for path in paths.iter() {
         let file = DsFile::from_file(path)?;
         let rows = file.get_help_rows(&current_dir, git_root.as_ref())?;
 
