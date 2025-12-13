@@ -1,5 +1,6 @@
 use crate::{
     dir::resolve_path,
+    env::Envs,
     group::{Group, GroupMode},
 };
 use anyhow::Result;
@@ -40,7 +41,7 @@ pub struct CommandConfig {
     /// The command to run.
     pub command: String,
     /// Optional environment keys (not yet implemented).
-    pub envs: Option<Vec<String>>,
+    pub envs: Option<Envs>,
     /// Optional root configuration, to define where the command is run from.
     pub root: Option<RootConfig>,
     /// Optional aliases for the command, used to run it with different names.

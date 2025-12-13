@@ -1,5 +1,6 @@
 use crate::{
     command::{Command, RootConfig},
+    env::Envs,
     help::HelpRow,
 };
 use anyhow::Result;
@@ -35,7 +36,7 @@ pub enum GroupMode {
 /// This is the top-level structure of a `ds.json` file, and can be nested.
 /// If there are multiple files, they are merged together
 /// (configured in `on_conflict` in global config).
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Group {
     /// Optional name for the group, used in help messages.
     pub name: Option<String>,
@@ -47,9 +48,7 @@ pub struct Group {
     /// Commands within the group. Can be commands or sub-groups.
     pub commands: BTreeMap<String, Command>,
     /// Optional environment keys (not yet implemented).
-    pub envs: Option<Vec<String>>,
-    /// Optional dotenv files options (not yet implemented).
-    pub dotenv_files: Option<BTreeMap<String, String>>,
+    pub envs: Envs,
     /// Optional root configuration, to define where the group is run from.
     pub root: Option<RootConfig>,
     /// Optional group mode, to define if it is namespaced or flattened.
