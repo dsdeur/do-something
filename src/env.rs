@@ -4,6 +4,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::command::RootConfig;
 
+/// Environment configuration, a dotenv file path
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DotenvConfig {
+    /// The path to the dotenv file
+    pub path: String,
+    /// Optional list of specific variables to load from the command output
+    pub vars: BTreeMap<String, String>,
+}
+
 /// Environment configuration, run a command to load environment variables
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EnvCommand {
@@ -12,7 +21,7 @@ pub struct EnvCommand {
     /// Optional root configuration, to define where the command is run from.
     pub root: Option<RootConfig>,
     /// Optional list of specific variables to load from the command output
-    pub vars: Option<Vec<String>>,
+    pub vars: Option<BTreeMap<String, String>>,
 }
 
 /// Environment configuration, a set of key-value pairs
