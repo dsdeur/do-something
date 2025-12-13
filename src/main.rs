@@ -1,13 +1,4 @@
-mod cli;
-mod command;
-mod config;
-mod dir;
-mod ds_file;
-mod group;
-mod help;
-mod runner;
-
-use crate::cli::run;
+use do_something::cli::run;
 
 fn main() {
     if let Err(e) = run() {
