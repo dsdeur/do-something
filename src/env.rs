@@ -29,6 +29,7 @@ pub struct EnvVars {
 
 /// An environment definition, either a dotenv file or a command to load envs
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum Env {
     /// A dotenv file path
     Dotenv(String),
@@ -102,6 +103,7 @@ pub struct EnvConfig {
 
 /// An environment definition, either a full config or a list of supported envs
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
 pub enum Envs {
     /// A full environment configuration
     Config(EnvConfig),
@@ -114,6 +116,10 @@ pub fn match_env<'a>(
     default: Option<&'a String>,
     args: &'a [&'a str],
 ) -> Result<Option<(&'a Env, &'a [&'a str])>> {
+    if envs.is_empty() {
+        return Ok(None);
+    }
+
     // If there are environments defined, but no args and no default, return an error
     if args.is_empty() && !envs.is_empty() && default.is_none() {
         return Err(anyhow::anyhow!(
@@ -136,7 +142,10 @@ pub fn match_env<'a>(
         }
     }
 
-    let first_arg = args[0];
+    let first_arg = args.get(0).ok_or(anyhow::anyhow!(
+        "No environment specified, and no default environment is set"
+    ))?;
+
     if let Some(env) = envs.get(&first_arg.to_string()) {
         return Ok(Some((env, &args[1..])));
     } else {
