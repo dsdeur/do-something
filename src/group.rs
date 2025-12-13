@@ -54,6 +54,8 @@ pub struct Group {
     pub commands: BTreeMap<String, Command>,
     /// Optional environment keys (not yet implemented).
     pub envs: Option<BTreeMap<String, Env>>,
+    /// Optional default environment key to use if no specific environment is set.
+    pub default_env: Option<String>,
     /// Optional root configuration, to define where the group is run from.
     pub root: Option<RootConfig>,
     /// Optional group mode, to define if it is namespaced or flattened.
@@ -156,11 +158,19 @@ impl Group {
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
 
-                let mut envs = cmd
-                    .get_envs(parents)
+                let (envs, default_env) = cmd.get_envs(parents);
+                let mut envs = envs
                     .keys()
-                    .map(|f| Some(*f))
-                    .collect::<Vec<Option<&String>>>();
+                    .map(|f| {
+                        if let Some(default_env) = default_env {
+                            if *f == default_env {
+                                return Some(format!("({})", f));
+                            }
+                        }
+
+                        Some(f.to_string())
+                    })
+                    .collect::<Vec<Option<String>>>();
 
                 if envs.is_empty() {
                     envs.push(None);
@@ -170,7 +180,7 @@ impl Group {
                     rows.push(HelpRow::new(
                         alias_keys.clone(),
                         command.to_string(),
-                        env.cloned(),
+                        env.clone(),
                     ));
                 }
             }

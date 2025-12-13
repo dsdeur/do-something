@@ -103,6 +103,7 @@ pub struct EnvConfig {
 
 pub fn match_env<'a>(
     envs: BTreeMap<&'a String, &'a Env>,
+    default_env: Option<&'a str>,
     args: &'a [&'a str],
 ) -> Result<Option<(&'a Env, &'a [&'a str])>> {
     if envs.is_empty() {
@@ -110,22 +111,28 @@ pub fn match_env<'a>(
     }
 
     // If there are environments defined, but no args and no default, return an error
-    if args.is_empty() && !envs.is_empty() {
+    if args.is_empty() && !envs.is_empty() && default_env.is_none() {
         return Err(anyhow::anyhow!(
             "No environment specified, and no default environment is set"
         ));
     }
 
-    let first_arg = args.get(0).ok_or(anyhow::anyhow!(
-        "No environment specified, and no default environment is set"
-    ))?;
-
-    if let Some(env) = envs.get(&first_arg.to_string()) {
+    if let Some(&env) = args.get(0).and_then(|&s| envs.get(&s.to_string())) {
         return Ok(Some((env, &args[1..])));
     } else {
-        return Err(anyhow::anyhow!(
-            "Environment '{}' not found in available environments",
-            first_arg
-        ));
+        if let Some(default_key) = default_env {
+            if let Some(&env) = envs.get(&default_key.to_string()) {
+                return Ok(Some((env, args)));
+            } else {
+                return Err(anyhow::anyhow!(
+                    "Environment not found, and default environment '{}' is not found",
+                    default_key
+                ));
+            }
+        } else {
+            return Err(anyhow::anyhow!(
+                "Environment not found, and no default environment is set",
+            ));
+        }
     }
 }

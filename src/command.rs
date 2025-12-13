@@ -45,6 +45,8 @@ pub struct CommandConfig {
     pub command: String,
     /// Optional environment keys (not yet implemented).
     pub envs: Option<BTreeMap<String, Env>>,
+    /// Optional default environment key to use if no specific environment is set.
+    pub default_env: Option<String>,
     /// Optional root configuration, to define where the command is run from.
     pub root: Option<RootConfig>,
     /// Optional aliases for the command, used to run it with different names.
@@ -112,14 +114,30 @@ impl Command {
         }
     }
 
-    /// Get the merged environment configurations from the command and its parents
-    pub fn get_envs<'a>(&'a self, parents: &[&'a Group]) -> BTreeMap<&'a String, &'a Env> {
-        let mut merged: BTreeMap<&String, &Env> = BTreeMap::new();
+    /// Get the environment configuration for the command or group
+    pub fn get_default_env(&self) -> Option<&String> {
+        match self {
+            Command::Config(cmd) => cmd.default_env.as_ref(),
+            Command::Group(group) => group.default_env.as_ref(),
+            _ => None,
+        }
+    }
 
-        let parent_envs = parents
-            .iter()
-            .rev()
-            .filter_map(|parent| parent.envs.as_ref());
+    /// Get the merged environment configurations from the command and its parents
+    pub fn get_envs<'a>(
+        &'a self,
+        parents: &[&'a Group],
+    ) -> (BTreeMap<&'a String, &'a Env>, Option<&'a str>) {
+        let mut merged: BTreeMap<&String, &Env> = BTreeMap::new();
+        let mut default_env = None;
+
+        let parent_envs = parents.iter().rev().filter_map(|parent| {
+            if parent.default_env.is_some() {
+                default_env = parent.default_env.as_deref();
+            }
+
+            parent.envs.as_ref()
+        });
 
         for envs in parent_envs.chain(self.get_env().into_iter()) {
             for (key, env) in envs.iter() {
@@ -127,7 +145,11 @@ impl Command {
             }
         }
 
-        merged
+        if let Some(env) = self.get_default_env() {
+            default_env = Some(env);
+        }
+
+        (merged, default_env)
     }
 
     /// Check if the command or group is in scope for the current directory/git root.

@@ -196,11 +196,19 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys = match_.keys.iter().map(|s| s.as_str()).collect();
-        let mut envs = command
-            .get_envs(&parents)
+        let (envs, default_env) = command.get_envs(&parents);
+        let mut envs = envs
             .keys()
-            .map(|f| Some(*f))
-            .collect::<Vec<Option<&String>>>();
+            .map(|f| {
+                if let Some(default_env) = default_env {
+                    if *f == default_env {
+                        return Some(format!("({})", f));
+                    }
+                }
+
+                Some(f.to_string())
+            })
+            .collect::<Vec<Option<String>>>();
 
         if envs.is_empty() {
             envs.push(None);
@@ -210,7 +218,7 @@ impl DsFile {
             Command::Inline(cmd) => {
                 let rows = envs
                     .iter()
-                    .map(|env| HelpRow::new(match_.alias_keys.clone(), cmd.clone(), env.cloned()))
+                    .map(|env| HelpRow::new(match_.alias_keys.clone(), cmd.clone(), env.clone()))
                     .collect();
 
                 Ok(rows)
@@ -220,7 +228,7 @@ impl DsFile {
                 let rows = envs
                     .iter()
                     .map(|env| {
-                        HelpRow::new(match_.alias_keys.clone(), command.clone(), env.cloned())
+                        HelpRow::new(match_.alias_keys.clone(), command.clone(), env.clone())
                     })
                     .collect();
 
