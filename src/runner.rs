@@ -94,10 +94,10 @@ impl Runner {
         command: &Command,
     ) -> Result<Self> {
         let path = command.get_command_root_path(parents)?;
-        let (env, default) = command.get_envs(parents);
+        let env = command.get_envs(parents);
         let mut extra_args = &target[command_match.score..];
 
-        let env = if let Some((matched_env, args)) = match_env(env, default, extra_args)? {
+        let env = if let Some((matched_env, args)) = match_env(env, extra_args)? {
             extra_args = args;
             Some(matched_env)
         } else {

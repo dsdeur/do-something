@@ -101,19 +101,8 @@ pub struct EnvConfig {
     pub default: Option<String>,
 }
 
-/// An environment definition, either a full config or a list of supported envs
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(untagged)]
-pub enum Envs {
-    /// A full environment configuration
-    Config(EnvConfig),
-    /// A list of supported environment names, defined in parent group(s)
-    Supported(Vec<String>),
-}
-
 pub fn match_env<'a>(
     envs: BTreeMap<&'a String, &'a Env>,
-    default: Option<&'a String>,
     args: &'a [&'a str],
 ) -> Result<Option<(&'a Env, &'a [&'a str])>> {
     if envs.is_empty() {
@@ -121,25 +110,10 @@ pub fn match_env<'a>(
     }
 
     // If there are environments defined, but no args and no default, return an error
-    if args.is_empty() && !envs.is_empty() && default.is_none() {
+    if args.is_empty() && !envs.is_empty() {
         return Err(anyhow::anyhow!(
             "No environment specified, and no default environment is set"
         ));
-    }
-
-    // If no args provided, use default if available
-    if args.is_empty() {
-        if let Some(default_name) = default {
-            let env = envs.get(default_name);
-            if let Some(env) = env {
-                return Ok(Some((env, args)));
-            } else {
-                return Err(anyhow::anyhow!(
-                    "Default environment '{}' not found in available environments",
-                    default_name
-                ));
-            }
-        }
     }
 
     let first_arg = args.get(0).ok_or(anyhow::anyhow!(

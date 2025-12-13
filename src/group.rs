@@ -1,6 +1,6 @@
 use crate::{
     command::{Command, RootConfig},
-    env::Envs,
+    env::Env,
     help::HelpRow,
 };
 use anyhow::Result;
@@ -53,7 +53,7 @@ pub struct Group {
     /// Commands within the group. Can be commands or sub-groups.
     pub commands: BTreeMap<String, Command>,
     /// Optional environment keys (not yet implemented).
-    pub envs: Option<Envs>,
+    pub envs: Option<BTreeMap<String, Env>>,
     /// Optional root configuration, to define where the group is run from.
     pub root: Option<RootConfig>,
     /// Optional group mode, to define if it is namespaced or flattened.
