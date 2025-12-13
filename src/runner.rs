@@ -1,6 +1,7 @@
 use crate::{
     command::{Command, CommandConfig},
     ds_file::Match,
+    env::{Env, RunnerEnv, match_env},
     group::Group,
 };
 use anyhow::Result;
@@ -17,15 +18,30 @@ fn create_command(
     command: &str,
     work_dir: Option<impl AsRef<Path>>,
     args: &[&str],
+    env: Option<&Env>,
 ) -> Result<(ProcessCommand, String)> {
+    let mut cmd = ProcessCommand::new("sh");
     let mut command_str = command.to_string();
+
+    // Handle environment
+    if let Some(env) = env {
+        let RunnerEnv { command, vars } = env.get_env_vars();
+
+        // Prepend the command if specified
+        if let Some(cmd) = command {
+            command_str = format!("{} {}", cmd, command_str);
+        }
+
+        // Set the custom environment variables
+        if let Some(vars) = vars {
+            cmd.envs(vars);
+        }
+    }
 
     for arg in args {
         command_str.push(' ');
         command_str.push_str(&escape(Cow::Borrowed(arg)));
     }
-
-    let mut cmd = ProcessCommand::new("sh");
 
     cmd.arg("-c");
     cmd.arg(&command_str);
@@ -61,8 +77,9 @@ impl Runner {
         command: &String,
         path: Option<impl AsRef<Path>>,
         args: &[&str],
+        env: Option<&Env>,
     ) -> Result<Self> {
-        let (cmd, cmd_str) = create_command(command, path, args)?;
+        let (cmd, cmd_str) = create_command(command, path, args, env)?;
         Ok(Runner::Command(cmd_str, Box::new(cmd)))
     }
 
@@ -77,12 +94,20 @@ impl Runner {
         command: &Command,
     ) -> Result<Self> {
         let path = command.get_command_root_path(parents)?;
-        let extra_args = &target[command_match.score..];
+        let (env, default) = command.get_envs(parents);
+        let mut extra_args = &target[command_match.score..];
+
+        let env = if let Some((matched_env, args)) = match_env(env, default, extra_args)? {
+            extra_args = args;
+            Some(matched_env)
+        } else {
+            None
+        };
 
         let runner = match command {
-            Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args)?,
+            Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args, env)?,
             Command::Config(CommandConfig { command: cmd, .. }) => {
-                Runner::new_command(cmd, path.as_ref(), extra_args)?
+                Runner::new_command(cmd, path.as_ref(), extra_args, env)?
             }
             Command::Group(_group) => Runner::Help,
         };
