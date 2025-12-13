@@ -31,6 +31,10 @@ pub enum GroupMode {
     Flattened,
 }
 
+fn default_command() -> String {
+    "default".to_string()
+}
+
 /// A group of commands, that share common configuration.
 ///
 /// This is the top-level structure of a `ds.json` file, and can be nested.
@@ -44,11 +48,12 @@ pub struct Group {
     pub description: Option<String>,
     /// Optional default command for the group, if no sub-command is provided.
     /// If not provided, it will show help for the group.
-    pub default: Option<String>,
+    #[serde(default = "default_command")]
+    pub default: String,
     /// Commands within the group. Can be commands or sub-groups.
     pub commands: BTreeMap<String, Command>,
     /// Optional environment keys (not yet implemented).
-    pub envs: Envs,
+    pub envs: Option<Envs>,
     /// Optional root configuration, to define where the group is run from.
     pub root: Option<RootConfig>,
     /// Optional group mode, to define if it is namespaced or flattened.
@@ -158,5 +163,23 @@ impl Group {
         });
 
         err.map_or(Ok(rows), Err)
+    }
+
+    pub fn get_default_command(&self) -> Option<&Command> {
+        let mut curr = self;
+
+        loop {
+            if let Some(cmd) = curr.commands.get(&curr.default) {
+                match cmd {
+                    Command::Config(_) | Command::Inline(_) => return Some(cmd),
+                    Command::Group(group) => {
+                        // Continue down the group
+                        curr = group;
+                    }
+                }
+            } else {
+                return None;
+            };
+        }
     }
 }

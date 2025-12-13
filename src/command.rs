@@ -200,10 +200,17 @@ impl Command {
 
     /// Get the command string for the command definition
     pub fn get_command(&self) -> Option<&str> {
-        match self {
+        // Resolve a group with a default, to it's default command
+        let command = if let Command::Group(group) = self {
+            group.get_default_command().unwrap_or(self)
+        } else {
+            self
+        };
+
+        match command {
             Command::Inline(cmd) => Some(cmd),
             Command::Config(cmd) => Some(&cmd.command),
-            Command::Group(Group { default, .. }) => default.as_deref(),
+            Command::Group(_) => None,
         }
     }
 }

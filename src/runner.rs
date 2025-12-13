@@ -76,13 +76,17 @@ impl Runner {
         target: &[&str],
         command: &Command,
     ) -> Result<Self> {
+        // Resolve a group with a default, to it's default command
+        let command = if let Command::Group(group) = command {
+            group.get_default_command().unwrap_or(command)
+        } else {
+            command
+        };
+
         let path = command.get_command_root_path(parents)?;
         let extra_args = &target[command_match.score..];
 
         let runner = match command {
-            Command::Group(Group {
-                default: Some(cmd), ..
-            }) => Runner::new_command(cmd, path.as_ref(), extra_args)?,
             Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args)?,
             Command::Config(CommandConfig { command: cmd, .. }) => {
                 Runner::new_command(cmd, path.as_ref(), extra_args)?
