@@ -8,15 +8,17 @@ pub struct HelpRow {
     pub alias_keys: Vec<Vec<String>>,
     pub prefix: &'static str,
     pub command: String,
+    pub env: Option<String>,
 }
 
 impl HelpRow {
     /// Create a new help row with the given alias keys and command
-    pub fn new(alias_keys: Vec<Vec<String>>, command: String) -> Self {
+    pub fn new(alias_keys: Vec<Vec<String>>, command: String, env: Option<String>) -> Self {
         HelpRow {
             prefix: "ds",
             alias_keys,
             command,
+            env,
         }
     }
 
@@ -43,7 +45,12 @@ impl HelpRow {
     /// Get the length of the row, to calculate how much space it will take in the output
     #[must_use]
     pub fn len(&self) -> usize {
-        let mut len = self.prefix.len() + 1 + self.get_key().len();
+        let env_size = match &self.env {
+            Some(env) => env.len() + 1, // +1 for the space
+            None => 0,
+        };
+
+        let mut len = self.prefix.len() + 1 + self.get_key().len() + env_size;
         let group_keys = self.get_group_keys();
 
         if !group_keys.is_empty() {
@@ -103,11 +110,17 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
         let prefix = row.prefix;
 
         if std::io::stdout().is_terminal() {
+            let env = match &row.env {
+                Some(env) => format!(" {}", env),
+                None => "".to_string(),
+            };
+
             let cmd = format!(
-                "{} {}{} {}",
+                "{} {}{}{} {}",
                 prefix.grey(),
                 groups.dark_blue().bold(),
                 key.white().bold(),
+                env.magenta().bold(),
                 " ".repeat(max_width - length)
             );
 

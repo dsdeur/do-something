@@ -156,7 +156,23 @@ impl Group {
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
 
-                rows.push(HelpRow::new(alias_keys, command.to_string()));
+                let mut envs = cmd
+                    .get_envs(parents)
+                    .keys()
+                    .map(|f| Some(*f))
+                    .collect::<Vec<Option<&String>>>();
+
+                if envs.is_empty() {
+                    envs.push(None);
+                }
+
+                for env in envs {
+                    rows.push(HelpRow::new(
+                        alias_keys.clone(),
+                        command.to_string(),
+                        env.cloned(),
+                    ));
+                }
             }
 
             Walk::Continue

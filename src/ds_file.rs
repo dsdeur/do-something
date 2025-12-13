@@ -196,13 +196,37 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys = match_.keys.iter().map(|s| s.as_str()).collect();
+        let mut envs = command
+            .get_envs(&parents)
+            .keys()
+            .map(|f| Some(*f))
+            .collect::<Vec<Option<&String>>>();
+
+        if envs.is_empty() {
+            envs.push(None);
+        }
 
         match command {
-            Command::Inline(cmd) => Ok(vec![HelpRow::new(match_.alias_keys.clone(), cmd.clone())]),
-            Command::Config(CommandConfig { command, .. }) => Ok(vec![HelpRow::new(
-                match_.alias_keys.clone(),
-                command.clone(),
-            )]),
+            Command::Inline(cmd) => {
+                let rows = envs
+                    .iter()
+                    .map(|env| HelpRow::new(match_.alias_keys.clone(), cmd.clone(), env.cloned()))
+                    .collect();
+
+                Ok(rows)
+            }
+
+            Command::Config(CommandConfig { command, .. }) => {
+                let rows = envs
+                    .iter()
+                    .map(|env| {
+                        HelpRow::new(match_.alias_keys.clone(), command.clone(), env.cloned())
+                    })
+                    .collect();
+
+                Ok(rows)
+            }
+
             Command::Group(group) => {
                 group.get_help_rows(&mut keys, &mut parents, current_dir, git_root)
             }
