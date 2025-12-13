@@ -1,11 +1,14 @@
 use crate::{
     dir::resolve_path,
-    env::Envs,
+    env::{Env, Envs},
     group::{Group, GroupMode},
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 /// Configures when a command or group is available to run.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -98,6 +101,62 @@ impl Command {
         } else {
             Ok((None, None))
         }
+    }
+
+    /// Get the environment configuration for the command or group
+    fn get_env(&self) -> Option<&Envs> {
+        match self {
+            Command::Config(cmd) => cmd.envs.as_ref(),
+            Command::Group(group) => group.envs.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Get the merged environment configurations from the command and its parents
+    pub fn get_envs<'a>(
+        &'a self,
+        parents: &[&'a Group],
+    ) -> (BTreeMap<&'a String, &'a Env>, Option<&'a String>) {
+        let mut merged: BTreeMap<&String, &Env> = BTreeMap::new();
+        let mut default = None;
+        let mut supported_envs = None;
+
+        let parent_envs = parents
+            .iter()
+            .rev()
+            .filter_map(|parent| parent.envs.as_ref());
+
+        let self_envs = self.get_env().into_iter();
+
+        for envs in parent_envs.chain(self_envs) {
+            match envs {
+                Envs::Supported(supp) => {
+                    supported_envs = Some(supp);
+                }
+                Envs::Config(cfg) => {
+                    for (key, env) in cfg.envs.iter() {
+                        merged.entry(key).or_insert(env);
+                    }
+
+                    if let Some(env_default) = &cfg.default {
+                        default = Some(env_default);
+                    }
+                }
+            }
+        }
+
+        // Apply supported envs filter if it exists
+        if let Some(supported_envs) = supported_envs {
+            let filtered: BTreeMap<&String, &Env> = merged
+                .iter()
+                .filter(|(key, _)| supported_envs.contains(key))
+                .map(|(k, v)| (*k, *v))
+                .collect();
+
+            merged = filtered;
+        }
+
+        (merged, default)
     }
 
     /// Check if the command or group is in scope for the current directory/git root.
