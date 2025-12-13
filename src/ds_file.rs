@@ -113,6 +113,10 @@ impl DsFile {
         }
 
         if let Some(command) = command {
+            // Resolve the default command from groups
+            // Make sure we also collect the parents correctly, if we are further nesting into defaults
+            let command = command.resolve_default(&mut Some(&mut parents));
+
             Ok((command, parents))
         } else {
             Err(anyhow::anyhow!(

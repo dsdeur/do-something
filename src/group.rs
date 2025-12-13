@@ -165,7 +165,10 @@ impl Group {
         err.map_or(Ok(rows), Err)
     }
 
-    pub fn get_default_command(&self) -> Option<&Command> {
+    pub fn get_default_command<'a>(
+        &'a self,
+        parents: &mut Option<&mut Vec<&'a Group>>,
+    ) -> Option<&'a Command> {
         let mut curr = self;
 
         loop {
@@ -173,6 +176,10 @@ impl Group {
                 match cmd {
                     Command::Config(_) | Command::Inline(_) => return Some(cmd),
                     Command::Group(group) => {
+                        if let Some(parents) = parents.as_deref_mut() {
+                            parents.push(curr);
+                        }
+
                         // Continue down the group
                         curr = group;
                     }

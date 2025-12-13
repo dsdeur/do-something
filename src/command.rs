@@ -198,14 +198,23 @@ impl Command {
         parent_keys
     }
 
+    /// Handle default command resolution for groups
+    /// The resulting command will be the fully resolved command, which is either:
+    /// - The command itself, if it's not a group
+    /// - The default command of the group, if it has one
+    /// - The group itself, if it has no default command
+    pub fn resolve_default<'a>(&'a self, parents: &mut Option<&mut Vec<&'a Group>>) -> &'a Self {
+        // Resolve a group with a default, to it's default command
+        match &self {
+            Command::Group(group) => group.get_default_command(parents).unwrap_or(self),
+            _ => self,
+        }
+    }
+
     /// Get the command string for the command definition
     pub fn get_command(&self) -> Option<&str> {
         // Resolve a group with a default, to it's default command
-        let command = if let Command::Group(group) = self {
-            group.get_default_command().unwrap_or(self)
-        } else {
-            self
-        };
+        let command = self.resolve_default(&mut None);
 
         match command {
             Command::Inline(cmd) => Some(cmd),
