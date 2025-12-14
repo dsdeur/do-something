@@ -128,6 +128,7 @@ impl Group {
     /// Get the help rows for the group and its subgroups
     pub fn get_help_rows<'a>(
         &'a self,
+        file_name: &str,
         keys: &mut Vec<&'a str>,
         parents: &mut Vec<&'a Group>,
         current_dir: impl AsRef<Path>,
@@ -178,6 +179,8 @@ impl Group {
 
                 for env in envs {
                     rows.push(HelpRow::new(
+                        file_name.to_string(),
+                        keys.iter().map(|s| s.to_string()).collect(),
                         alias_keys.clone(),
                         command.to_string(),
                         env.clone(),

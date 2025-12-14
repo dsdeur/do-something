@@ -11,6 +11,7 @@ use std::{fs, path::Path};
 /// Mainly to have a common interface for loading and matching commands.
 pub struct DsFile {
     pub group: Group,
+    pub file_name: String,
 }
 
 /// Represents a match for a command, containing the score and keys
@@ -88,7 +89,10 @@ impl DsFile {
             group.description = Some(collapse_to_tilde(path.as_ref()));
         }
 
-        Ok(Self { group })
+        Ok(Self {
+            group,
+            file_name: path.as_ref().to_string_lossy().to_string(),
+        })
     }
 
     /// Get a command (and its parents) from the tree, based on the provided keys
@@ -195,7 +199,7 @@ impl DsFile {
         git_root: Option<impl AsRef<Path>>,
     ) -> Result<Vec<HelpRow>> {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
-        let mut keys = match_.keys.iter().map(|s| s.as_str()).collect();
+        let mut keys: Vec<&str> = match_.keys.iter().map(|s| s.as_str()).collect();
         let (envs, default_env) = command.get_envs(&parents);
         let mut envs = envs
             .keys()
@@ -218,7 +222,15 @@ impl DsFile {
             Command::Inline(cmd) => {
                 let rows = envs
                     .iter()
-                    .map(|env| HelpRow::new(match_.alias_keys.clone(), cmd.clone(), env.clone()))
+                    .map(|env| {
+                        HelpRow::new(
+                            self.file_name.clone(),
+                            keys.iter().map(|s| s.to_string()).collect(),
+                            match_.alias_keys.clone(),
+                            cmd.clone(),
+                            env.clone(),
+                        )
+                    })
                     .collect();
 
                 Ok(rows)
@@ -228,16 +240,26 @@ impl DsFile {
                 let rows = envs
                     .iter()
                     .map(|env| {
-                        HelpRow::new(match_.alias_keys.clone(), command.clone(), env.clone())
+                        HelpRow::new(
+                            self.file_name.clone(),
+                            keys.iter().map(|s| s.to_string()).collect(),
+                            match_.alias_keys.clone(),
+                            command.clone(),
+                            env.clone(),
+                        )
                     })
                     .collect();
 
                 Ok(rows)
             }
 
-            Command::Group(group) => {
-                group.get_help_rows(&mut keys, &mut parents, current_dir, git_root)
-            }
+            Command::Group(group) => group.get_help_rows(
+                &self.file_name,
+                &mut keys,
+                &mut parents,
+                current_dir,
+                git_root,
+            ),
         }
     }
 
@@ -249,7 +271,12 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
-        self.group
-            .get_help_rows(&mut keys, &mut parents, current_dir, git_root.as_ref())
+        self.group.get_help_rows(
+            &self.file_name,
+            &mut keys,
+            &mut parents,
+            current_dir,
+            git_root.as_ref(),
+        )
     }
 }

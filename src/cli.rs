@@ -2,7 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match},
-    help::{HelpRow, print_lines},
+    help::{HelpRow, print_lines, run_fzf},
     runner::Runner,
 };
 use anyhow::Result;
@@ -49,63 +49,12 @@ pub fn match_command(
     Ok(files)
 }
 
-/// Render the help for all commands
-pub fn render_help(
-    paths: &[PathBuf],
+pub fn run_matches(
+    matches: Vec<(DsFile, Vec<Match>)>,
+    args_str: &[&str],
     current_dir: impl AsRef<Path>,
     git_root: Option<impl AsRef<Path>>,
 ) -> Result<()> {
-    let mut groups = Vec::new();
-
-    for path in paths.iter() {
-        let file = DsFile::from_file(path)?;
-        let rows = file.get_help_rows(&current_dir, git_root.as_ref())?;
-
-        // If the group has no commands, we skip it
-        if rows.is_empty() {
-            continue;
-        }
-
-        groups.push((file, rows))
-    }
-
-    let max_size = groups
-        .iter()
-        .flat_map(|(_file, rows)| rows)
-        .map(HelpRow::len)
-        .max()
-        .unwrap_or(0);
-
-    for (file, rows) in groups {
-        print_lines(&file, rows, max_size);
-    }
-
-    Ok(())
-}
-
-/// Run the CLI application
-pub fn run() -> Result<()> {
-    // Get the command line arguments, skipping the first one (the program name)
-    let args: Vec<String> = env::args().skip(1).collect();
-    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-
-    // Load the global configuration
-    let config = config::GlobalConfig::load()?;
-    let paths = config.get_command_paths()?;
-
-    // For scoping, get the current directory and git root
-    let current_dir = std::env::current_dir()?;
-    let git_root = git_root();
-
-    if args_str.is_empty() {
-        // If no arguments are provided, we render the help for all commands
-        render_help(&paths, &current_dir, git_root.as_ref())?;
-        std::process::exit(0);
-    }
-
-    // Get the runner based on the provided arguments
-    let matches = match_command(&config, &paths, &args_str, &current_dir, git_root.as_ref())?;
-
     // Get the first match, as we reverse iterate
     let (file, matches) = matches
         .first()
@@ -134,4 +83,81 @@ pub fn run() -> Result<()> {
             std::process::exit(0);
         }
     }
+}
+
+/// Render the help for all commands
+pub fn render_help(
+    paths: &[PathBuf],
+    current_dir: impl AsRef<Path>,
+    git_root: Option<impl AsRef<Path>>,
+    config: &config::GlobalConfig,
+) -> Result<()> {
+    let mut groups = Vec::new();
+
+    for path in paths.iter() {
+        let file = DsFile::from_file(path)?;
+        let rows = file.get_help_rows(&current_dir, git_root.as_ref())?;
+
+        // If the group has no commands, we skip it
+        if rows.is_empty() {
+            continue;
+        }
+
+        groups.push((file, rows))
+    }
+
+    let max_size = groups
+        .iter()
+        .flat_map(|(_file, rows)| rows)
+        .map(HelpRow::len)
+        .max()
+        .unwrap_or(0);
+
+    match config.help_mode {
+        config::HelpMode::Fzf => {
+            let res = run_fzf(groups, max_size)?;
+            if let Some((file_name, key)) = res {
+                let args_str = &key.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
+                // Get the runner based on the provided arguments
+                let paths = vec![PathBuf::from(file_name)];
+                let matches =
+                    match_command(&config, &paths, args_str, &current_dir, git_root.as_ref())?;
+
+                run_matches(matches, &args_str, &current_dir, git_root.as_ref())?;
+            }
+
+            Ok(())
+        }
+        config::HelpMode::List => {
+            for (file, rows) in groups {
+                print_lines(&file, rows, max_size);
+            }
+            Ok(())
+        }
+    }
+}
+
+/// Run the CLI application
+pub fn run() -> Result<()> {
+    // Get the command line arguments, skipping the first one (the program name)
+    let args: Vec<String> = env::args().skip(1).collect();
+    let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+    // Load the global configuration
+    let config = config::GlobalConfig::load()?;
+    let paths = config.get_command_paths()?;
+
+    // For scoping, get the current directory and git root
+    let current_dir = std::env::current_dir()?;
+    let git_root = git_root();
+
+    if args_str.is_empty() {
+        // If no arguments are provided, we render the help for all commands
+        render_help(&paths, &current_dir, git_root.as_ref(), &config)?;
+        std::process::exit(0);
+    }
+
+    // Get the runner based on the provided arguments
+    let matches = match_command(&config, &paths, &args_str, &current_dir, git_root.as_ref())?;
+    run_matches(matches, &args_str, &current_dir, git_root.as_ref())
 }
