@@ -5,23 +5,22 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, env, path::PathBuf};
 
 /// Configure how to handle commands with the same key
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub enum OnConflict {
     /// Keep the last defined command
+    #[default]
     Override,
     /// Error on conflict
     Error,
 }
 
-/// How to find ds.json config files (Not yet implemented)
-#[derive(Debug, Serialize, Deserialize)]
-pub enum Resolution {
-    /// Only look at the current folder where the `ds` command is run from
-    CurrentFolder,
-    /// Look recursively in parent directories
-    Recursive,
-    /// Look in the nearest Git root directory
-    GitRoot,
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub enum HelpMode {
+    /// Show a classic list of help commands
+    #[default]
+    List,
+    /// Use fzf to fuzzy search commands
+    Fzf,
 }
 
 /// Global configuration for the application
@@ -29,11 +28,14 @@ pub enum Resolution {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct GlobalConfig {
     /// Behavior on command key conflicts
+    #[serde(default)]
     pub on_conflict: OnConflict,
-    /// Resolution strategy for finding configuration files
-    pub resolution: Resolution,
     /// Optional list of files to to collect commands from
+    #[serde(default)]
     pub ds_files: Option<Vec<String>>,
+    /// Help mode, when no command is provided, or group help is shown
+    #[serde(default)]
+    pub help_mode: HelpMode,
 }
 
 /// Get the configuration directory path, typically ~/.config/dosomething
@@ -45,8 +47,8 @@ impl Default for GlobalConfig {
     fn default() -> Self {
         GlobalConfig {
             on_conflict: OnConflict::Error,
-            resolution: Resolution::Recursive,
             ds_files: None,
+            help_mode: HelpMode::List,
         }
     }
 }
