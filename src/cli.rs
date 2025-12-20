@@ -8,6 +8,7 @@ use crate::{
 };
 use anyhow::{Ok, Result};
 use crossterm::style::Stylize;
+use std::io::IsTerminal;
 use std::{
     env,
     path::{Path, PathBuf},
@@ -114,6 +115,15 @@ pub fn render_help(
         .max()
         .unwrap_or(0);
 
+    // If not a terminal, we just print the help
+    if !std::io::stdout().is_terminal() {
+        for (file, rows) in groups {
+            print_lines(&file, rows, max_size);
+        }
+        return Ok(());
+    }
+
+    // Otherwise, we run the TUI
     let row = run_tui(groups, max_size).unwrap();
 
     if let Some(row) = row {

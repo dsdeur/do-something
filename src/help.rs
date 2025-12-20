@@ -1,15 +1,10 @@
 use crate::ds_file::DsFile;
-use anyhow::Result;
 use crossterm::style::Stylize;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
 };
-// use std::io::{self, Write};
-use std::{
-    io::{IsTerminal, Write},
-    process::{Command, Stdio},
-};
+use std::io::IsTerminal;
 
 /// Represents a row in the help output
 #[derive(Debug, Clone)]
@@ -238,113 +233,6 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
     }
 
     for row in lines {
-        let group_keys = row.get_group_keys();
-        let groups = if group_keys.is_empty() {
-            group_keys
-        } else {
-            format!("{} ", group_keys)
-        };
-
-        let key = row.get_key();
-        let length = row.len();
-        let aliases = row.aliases();
-        let prefix = row.prefix;
-
-        if std::io::stdout().is_terminal() {
-            let env = match &row.env {
-                Some(env) => format!(" {}", env),
-                None => "".to_string(),
-            };
-
-            let cmd = format!(
-                "{} {}{}{} {}",
-                prefix.grey(),
-                groups.dark_blue().bold(),
-                key.white().bold(),
-                env.magenta().bold(),
-                " ".repeat(max_width - length)
-            );
-
-            println!("{} {}", cmd.blue(), row.command.dark_yellow());
-
-            if let Some(aliases) = aliases {
-                println!("{}{}", " - ".dim(), aliases.dim());
-            }
-        } else {
-            // If not in a terminal, just print the command and path
-            println!("{}{} {}", prefix, groups, key);
-        }
-    }
-}
-
-pub fn run_fzf(
-    groups: Vec<(DsFile, Vec<HelpRow>)>,
-    max_width: usize,
-) -> Result<Option<(String, Vec<String>)>> {
-    let mut child = Command::new("fzf")
-        .args([
-            "--layout=reverse",
-            "--border",
-            "--ansi",
-            "--cycle",
-            "--highlight-line",
-            "--with-nth=3..",
-        ])
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::inherit())
-        .spawn()?;
-
-    {
-        let stdin = child.stdin.as_mut().expect("stdin piped");
-        for (file, rows) in groups.iter().rev() {
-            if let Some(name) = &file.group.name {
-                let formatted = name.as_str().stylize().green().bold();
-                let file_name = &file.file_name;
-                writeln!(stdin, "{file_name}\t.\t {formatted}")?;
-            }
-
-            for row in rows {
-                let id = row.get_id();
-                let row_str = format!(
-                    "{}\t{} {}{}",
-                    id,
-                    row.format_colored(),
-                    " ".repeat(max_width - row.len()),
-                    row.command
-                );
-
-                writeln!(stdin, "{row_str}")?;
-            }
-
-            writeln!(stdin, "")?;
-        }
-    }
-
-    let output = child.wait_with_output()?;
-
-    if output.status.code() == Some(0) {
-        let s = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        let sp = s.split('\t').collect::<Vec<&str>>();
-        let file_name = sp.get(0);
-        let key = sp
-            .get(1)
-            .unwrap_or(&"")
-            .split('.')
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>();
-
-        if let Some(file_name) = file_name {
-            Ok(Some((file_name.to_string(), key)))
-        } else {
-            Ok(None)
-        }
-    } else if output.status.code() == Some(1) {
-        Ok(None) // user cancelled
-    } else {
-        Err(anyhow::anyhow!(
-            "fzf failed with exit code: {:?}",
-            output.status.code()
-        ))
+        println!("{}", row.to_string(max_width));
     }
 }
