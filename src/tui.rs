@@ -1,22 +1,6 @@
-//! # [Ratatui] Hello World example
-//!
-//! The latest version of this example is available in the [examples] folder in the repository.
-//!
-//! Please note that the examples are designed to be run against the `main` branch of the Github
-//! repository. This means that you may not be able to compile with the latest release version on
-//! crates.io, or the one that you have installed locally.
-//!
-//! See the [examples readme] for more information on finding examples that match the version of the
-//! library you are using.
-//!
-//! [Ratatui]: https://github.com/ratatui/ratatui
-//! [examples]: https://github.com/ratatui/ratatui/blob/main/examples
-//! [examples readme]: https://github.com/ratatui/ratatui/blob/main/examples/README.md
-
-use std::sync::Arc;
-
+use crate::ds_file::DsFile;
+use crate::help::HelpRow;
 use color_eyre::{Result, eyre::Context};
-
 use nucleo::Nucleo;
 use ratatui::prelude::*;
 use ratatui::style::palette::tailwind::SLATE;
@@ -28,11 +12,9 @@ use ratatui::{
     style::{Color, Modifier, Style},
     widgets::{Block, BorderType, Borders, Paragraph},
 };
+use std::sync::Arc;
 use tui_input::Input;
 use tui_input::backend::crossterm::EventHandler;
-
-use crate::ds_file::DsFile;
-use crate::help::HelpRow;
 
 struct App {
     search_input: Input,
@@ -197,8 +179,7 @@ impl Widget for &mut App {
 
         let [input_area, list_area] =
             Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(inner);
-        // let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
-        // frame.render_widget(greeting, frame.area());
+
         self.render_input(input_area, buf);
         self.render_list(list_area, buf);
     }
@@ -232,10 +213,22 @@ impl App {
         if self.search_input.value().is_empty() {
             for (file, rows) in self.groups.iter().rev() {
                 if let Some(name) = &file.group.name {
-                    let line =
-                        Span::styled(name.as_str(), Style::default().fg(Color::LightGreen).bold());
+                    let mut lines = vec![
+                        Line::from(""),
+                        Line::from(Span::styled(
+                            name.as_str(),
+                            Style::default().fg(Color::LightGreen).bold(),
+                        )),
+                    ];
 
-                    items.push(ListItem::new(vec![Line::from(""), Line::from(vec![line])]));
+                    if let Some(description) = &file.group.description {
+                        lines.push(Line::from(Span::styled(
+                            description.as_str(),
+                            Style::default().fg(Color::Gray).dim(),
+                        )));
+                    }
+
+                    items.push(ListItem::new(lines));
                 } else {
                     items.push(ListItem::new(vec![Line::from("")]));
                 }
@@ -271,7 +264,7 @@ fn create_nucleo(groups: &[(DsFile, Vec<HelpRow>)], max_size: usize) -> Nucleo<H
     for (_file, rows) in groups.iter().rev() {
         for row in rows.iter() {
             injector.push(row.clone(), |r, cols| {
-                cols[0] = r.to_string(max_size).into();
+                cols[0] = format!("{} {}", r.file_name, r.to_string(max_size)).into();
             });
         }
     }
