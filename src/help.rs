@@ -1,5 +1,4 @@
 use crate::ds_file::DsFile;
-use crossterm::style::Stylize;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
