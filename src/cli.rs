@@ -6,7 +6,7 @@ use crate::{
     runner::Runner,
     tui::run_tui,
 };
-use anyhow::Result;
+use anyhow::{Ok, Result};
 use crossterm::style::Stylize;
 use std::{
     env,
@@ -114,10 +114,8 @@ pub fn render_help(
         .max()
         .unwrap_or(0);
 
-    if let Some((file, rows)) = groups.first() {
-        run_tui(rows.clone()).unwrap();
-        return Ok(());
-    };
+    run_tui(groups).unwrap();
+    return Ok(());
 
     match config.help_mode {
         config::HelpMode::Fzf => {

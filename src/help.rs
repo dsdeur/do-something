@@ -1,6 +1,10 @@
 use crate::ds_file::DsFile;
 use anyhow::Result;
 use crossterm::style::Stylize;
+use ratatui::{
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+};
 // use std::io::{self, Write};
 use std::{
     io::{IsTerminal, Write},
@@ -124,6 +128,63 @@ impl HelpRow {
         };
 
         format!("{}\t{}{}", self.file_name, self.key.join("."), env)
+    }
+
+    pub fn print(&self) -> String {
+        let group_keys = self.get_group_keys();
+        let groups = if group_keys.is_empty() {
+            group_keys
+        } else {
+            format!("{} ", group_keys)
+        };
+
+        let key = self.get_key();
+        let prefix = self.prefix;
+
+        let env = match &self.env {
+            Some(env) => format!(" {}", env),
+            None => "".to_string(),
+        };
+
+        format!("{} {}{}{}", prefix, groups, key, env)
+    }
+
+    pub fn to_list_line(&self) -> Line<'static> {
+        let group_keys = self.get_group_keys();
+
+        let key = self.get_key();
+
+        let mut spans = vec![
+            Span::styled(self.prefix, Style::default().fg(Color::Gray)),
+            Span::raw(" "),
+        ];
+
+        if !group_keys.is_empty() {
+            spans.push(Span::styled(
+                format!("{} ", group_keys),
+                Style::default()
+                    .fg(Color::Blue)
+                    .add_modifier(Modifier::BOLD),
+            ));
+        }
+
+        spans.push(Span::styled(
+            key,
+            Style::default()
+                .fg(Color::White)
+                .add_modifier(Modifier::BOLD),
+        ));
+
+        if let Some(env) = &self.env {
+            spans.push(Span::styled(
+                format!(" {}", env),
+                Style::default()
+                    .fg(Color::Magenta)
+                    .add_modifier(Modifier::BOLD),
+            ));
+        };
+
+        Line::from(spans)
     }
 }
 

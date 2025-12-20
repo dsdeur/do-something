@@ -15,10 +15,11 @@
 
 use std::time::Duration;
 
+use color_eyre::owo_colors::OwoColorize;
 use color_eyre::{Result, eyre::Context};
 
 use ratatui::prelude::*;
-use ratatui::widgets::{HighlightSpacing, ListItem, ListState};
+use ratatui::widgets::{HighlightSpacing, ListItem, ListState, Padding};
 use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{self, Event, KeyCode},
@@ -29,11 +30,12 @@ use ratatui::{
 use tui_input::Input;
 use tui_input::backend::crossterm::EventHandler;
 
+use crate::ds_file::DsFile;
 use crate::help::HelpRow;
 
 struct App {
     search_input: Input,
-    rows: Vec<HelpRow>,
+    groups: Vec<(DsFile, Vec<HelpRow>)>,
     selection_index: usize,
     cursor_position: (u16, u16),
     list_state: ListState,
@@ -67,8 +69,20 @@ impl App {
 
 impl Widget for &mut App {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::DIM),
+            );
+        let inner = block.inner(area);
+
+        block.render(area, buf);
+
         let [input_area, list_area] =
-            Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).areas(area);
+            Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(inner);
         // let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
         // frame.render_widget(greeting, frame.area());
         self.render_input(input_area, buf);
@@ -97,19 +111,26 @@ impl App {
     }
 
     fn render_list(&mut self, area: Rect, buf: &mut Buffer) {
-        let block = Block::new();
+        let mut items: Vec<ListItem> = Vec::new();
 
-        let items: Vec<ListItem> = self
-            .rows
-            .iter()
-            .map(|row| {
-                let content = row.format_colored();
-                ListItem::new(content)
-            })
-            .collect();
+        for (file, rows) in self.groups.iter().rev() {
+            if let Some(name) = &file.group.name {
+                let line =
+                    Span::styled(name.as_str(), Style::default().fg(Color::LightGreen).bold());
+
+                items.push(ListItem::new(vec![Line::from(""), Line::from(vec![line])]));
+            } else {
+                items.push(ListItem::new(vec![Line::from("")]));
+            }
+
+            for row in rows {
+                let item = ListItem::from(row);
+                items.push(item);
+            }
+        }
 
         let list = ratatui::widgets::List::new(items)
-            .block(block)
+            .block(Block::new().padding(Padding::horizontal(1)))
             .highlight_symbol(">")
             .highlight_spacing(HighlightSpacing::Always);
 
@@ -119,13 +140,20 @@ impl App {
     }
 }
 
-pub fn run_tui(help_rows: Vec<HelpRow>) -> Result<()> {
+impl From<&HelpRow> for ListItem<'_> {
+    fn from(row: &HelpRow) -> Self {
+        let line = row.to_list_line();
+        ListItem::new(line)
+    }
+}
+
+pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>) -> Result<()> {
     color_eyre::install()?; // augment errors / panics with easy to read messages
     let mut terminal = ratatui::init();
 
     let app = App {
         search_input: Input::new("Yo yo!".to_string()),
-        rows: help_rows,
+        groups: groups,
         selection_index: 0,
         cursor_position: (0, 0),
         list_state: ListState::default(),
