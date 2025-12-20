@@ -8,7 +8,7 @@ use std::{
 };
 
 /// Represents a row in the help output
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct HelpRow {
     pub file_name: String,
     pub key: Vec<String>,

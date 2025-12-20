@@ -18,6 +18,7 @@ use std::time::Duration;
 use color_eyre::{Result, eyre::Context};
 
 use ratatui::prelude::*;
+use ratatui::widgets::{HighlightSpacing, ListItem, ListState};
 use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{self, Event, KeyCode},
@@ -34,12 +35,17 @@ struct App {
     search_input: Input,
     rows: Vec<HelpRow>,
     selection_index: usize,
+    cursor_position: (u16, u16),
+    list_state: ListState,
 }
 
 impl App {
     fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
         loop {
-            terminal.draw(|frame| self.draw(frame))?;
+            terminal.draw(|frame| {
+                frame.render_widget(&mut self, frame.area());
+                frame.set_cursor_position(self.cursor_position);
+            })?;
 
             let event = event::read()?;
 
@@ -57,29 +63,59 @@ impl App {
             }
         }
     }
+}
 
-    fn draw(&self, frame: &mut Frame) {
+impl Widget for &mut App {
+    fn render(self, area: Rect, buf: &mut Buffer) {
         let [input_area, list_area] =
-            Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).areas(frame.area());
+            Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).areas(area);
         // let greeting = Paragraph::new("Hello World! (press 'q' to quit)");
         // frame.render_widget(greeting, frame.area());
-        self.render_input(frame, input_area);
+        self.render_input(input_area, buf);
+        self.render_list(list_area, buf);
     }
+}
 
-    fn render_input(&self, frame: &mut Frame, area: Rect) {
+impl App {
+    fn render_input(&mut self, area: Rect, buf: &mut Buffer) {
         let [prompt_area, input_area] =
             Layout::horizontal([Constraint::Length(2), Constraint::Min(1)]).areas(area);
 
-        let prompt = Paragraph::new("> ").style(Style::default().fg(Color::Blue).bold());
-        frame.render_widget(prompt, prompt_area);
+        Paragraph::new("> ")
+            .style(Style::default().fg(Color::Blue).bold())
+            .render(prompt_area, buf);
 
         let width = input_area.width.max(0) - 0;
         let scroll = self.search_input.visual_scroll(width as usize);
-        let input = Paragraph::new(self.search_input.value()).block(Block::default());
-        frame.render_widget(input, input_area);
+        Paragraph::new(self.search_input.value())
+            .block(Block::default())
+            .render(input_area, buf);
 
         let x = self.search_input.visual_cursor().max(scroll) - scroll;
-        frame.set_cursor_position((input_area.x + x as u16, input_area.y));
+        // Store the cursor position in state, so we can set it after rendering
+        self.cursor_position = (input_area.x + x as u16, input_area.y);
+    }
+
+    fn render_list(&mut self, area: Rect, buf: &mut Buffer) {
+        let block = Block::new();
+
+        let items: Vec<ListItem> = self
+            .rows
+            .iter()
+            .map(|row| {
+                let content = row.format_colored();
+                ListItem::new(content)
+            })
+            .collect();
+
+        let list = ratatui::widgets::List::new(items)
+            .block(block)
+            .highlight_symbol(">")
+            .highlight_spacing(HighlightSpacing::Always);
+
+        // We need to disambiguate this trait method as both `Widget` and `StatefulWidget` share the
+        // same method name `render`.
+        StatefulWidget::render(list, area, buf, &mut self.list_state);
     }
 }
 
@@ -91,6 +127,8 @@ pub fn run_tui(help_rows: Vec<HelpRow>) -> Result<()> {
         search_input: Input::new("Yo yo!".to_string()),
         rows: help_rows,
         selection_index: 0,
+        cursor_position: (0, 0),
+        list_state: ListState::default(),
     };
     let app_result = app.run(&mut terminal).context("app loop failed");
 

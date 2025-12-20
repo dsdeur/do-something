@@ -4,6 +4,7 @@ use crate::{
     ds_file::{DsFile, Match},
     help::{HelpRow, print_lines, run_fzf},
     runner::Runner,
+    tui::run_tui,
 };
 use anyhow::Result;
 use crossterm::style::Stylize;
@@ -112,6 +113,11 @@ pub fn render_help(
         .map(HelpRow::len)
         .max()
         .unwrap_or(0);
+
+    if let Some((file, rows)) = groups.first() {
+        run_tui(rows.clone()).unwrap();
+        return Ok(());
+    };
 
     match config.help_mode {
         config::HelpMode::Fzf => {
