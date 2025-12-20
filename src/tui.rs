@@ -13,15 +13,13 @@
 //! [examples]: https://github.com/ratatui/ratatui/blob/main/examples
 //! [examples readme]: https://github.com/ratatui/ratatui/blob/main/examples/README.md
 
-use std::time::Duration;
-
-use color_eyre::owo_colors::OwoColorize;
 use color_eyre::{Result, eyre::Context};
 
 use ratatui::prelude::*;
-use ratatui::widgets::{HighlightSpacing, ListItem, ListState, Padding};
+use ratatui::style::palette::tailwind::SLATE;
+use ratatui::widgets::{HighlightSpacing, ListItem, ListState};
 use ratatui::{
-    DefaultTerminal, Frame,
+    DefaultTerminal,
     crossterm::event::{self, Event, KeyCode},
     layout::{Constraint, Layout, Rect},
     style::{Color, Modifier, Style},
@@ -36,13 +34,13 @@ use crate::help::HelpRow;
 struct App {
     search_input: Input,
     groups: Vec<(DsFile, Vec<HelpRow>)>,
-    selection_index: usize,
     cursor_position: (u16, u16),
     list_state: ListState,
 }
 
 impl App {
     fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+        self.select_first();
         loop {
             terminal.draw(|frame| {
                 frame.render_widget(&mut self, frame.area());
@@ -56,14 +54,99 @@ impl App {
                     KeyCode::Char('c') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
                         return Ok(());
                     }
-                    KeyCode::Char('q') => return Ok(()),
                     KeyCode::Esc => return Ok(()),
+                    KeyCode::Left => self.select_none(),
+                    KeyCode::Down => self.select_next(),
+                    KeyCode::Up => self.select_previous(),
+                    KeyCode::Home => self.select_first(),
+                    KeyCode::End => self.select_last(),
                     _ => {
                         self.search_input.handle_event(&event);
                     }
                 }
             }
         }
+    }
+
+    fn select_none(&mut self) {
+        self.list_state.select(None);
+    }
+
+    fn is_selected_header(&self) -> bool {
+        if let Some(selected) = self.list_state.selected() {
+            let mut index = 0;
+
+            for (_file, rows) in self.groups.iter().rev() {
+                // Check header
+                if index == selected {
+                    return true;
+                }
+                index += 1;
+
+                // Skip rows
+                index += rows.len();
+            }
+        }
+
+        false
+    }
+
+    fn get_max_index(&self) -> usize {
+        let mut max_index = 0;
+
+        for (_file, rows) in self.groups.iter() {
+            // Header
+            max_index += 1;
+            // Rows
+            max_index += rows.len();
+        }
+
+        max_index - 1
+    }
+
+    fn select_next(&mut self) {
+        self.list_state.select_next();
+
+        if let Some(index) = self.list_state.selected() {
+            if index > self.get_max_index() {
+                self.select_first();
+                return;
+            }
+
+            if self.is_selected_header() {
+                self.select_next();
+            }
+        }
+    }
+    fn select_previous(&mut self) {
+        self.list_state.select_previous();
+
+        if let Some(index) = self.list_state.selected() {
+            if index == 0 {
+                self.select_last();
+                return;
+            }
+
+            if self.is_selected_header() {
+                if index == 1 {
+                    self.select_last();
+                } else {
+                    self.select_previous();
+                }
+            }
+        }
+    }
+
+    fn select_first(&mut self) {
+        self.list_state.select_first();
+
+        if self.is_selected_header() {
+            self.select_next();
+        }
+    }
+
+    fn select_last(&mut self) {
+        self.list_state.select_last();
     }
 }
 
@@ -89,6 +172,8 @@ impl Widget for &mut App {
         self.render_list(list_area, buf);
     }
 }
+
+const SELECTED_STYLE: Style = Style::new().bg(SLATE.c700).add_modifier(Modifier::BOLD);
 
 impl App {
     fn render_input(&mut self, area: Rect, buf: &mut Buffer) {
@@ -130,8 +215,8 @@ impl App {
         }
 
         let list = ratatui::widgets::List::new(items)
-            .block(Block::new().padding(Padding::horizontal(1)))
-            .highlight_symbol(">")
+            .highlight_style(SELECTED_STYLE)
+            .highlight_symbol("  ")
             .highlight_spacing(HighlightSpacing::Always);
 
         // We need to disambiguate this trait method as both `Widget` and `StatefulWidget` share the
@@ -152,9 +237,8 @@ pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>) -> Result<()> {
     let mut terminal = ratatui::init();
 
     let app = App {
-        search_input: Input::new("Yo yo!".to_string()),
+        search_input: Input::new("".to_string()),
         groups: groups,
-        selection_index: 0,
         cursor_position: (0, 0),
         list_state: ListState::default(),
     };

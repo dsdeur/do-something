@@ -149,7 +149,7 @@ impl HelpRow {
         format!("{} {}{}{}", prefix, groups, key, env)
     }
 
-    pub fn to_list_line(&self) -> Line<'static> {
+    pub fn to_list_line(&self) -> Vec<Line<'static>> {
         let group_keys = self.get_group_keys();
 
         let key = self.get_key();
@@ -184,7 +184,17 @@ impl HelpRow {
             ));
         };
 
-        Line::from(spans)
+        let mut lines = vec![Line::from(spans)];
+        let aliases = self.aliases();
+
+        if let Some(aliases) = aliases {
+            lines.push(Line::from(vec![Span::styled(
+                format!(" - {}", aliases),
+                Style::default().fg(Color::Gray).add_modifier(Modifier::DIM),
+            )]));
+        }
+
+        lines
     }
 }
 
