@@ -52,6 +52,34 @@ pub fn match_command(
     Ok(files)
 }
 
+pub fn run_help_row(row: Option<HelpRow>) -> Result<()> {
+    if let Some(row) = row {
+        let file = DsFile::from_file(&row.file_name)?;
+        let (command, parents) = file.command_from_keys(&row.key)?;
+        let (envs, default_env) = command.get_envs(&parents);
+
+        let mut env = None;
+        if let Some(env_key) = &row.env {
+            env = envs.get(env_key);
+        };
+
+        if let Some(default) = default_env
+            && env.is_none()
+        {
+            env = envs.get(&default.to_string());
+        }
+
+        let runner = Runner::from_command(command, &parents, &[], env.map(|f| *f))?;
+        if let Runner::Command(cmd_str, mut command) = runner {
+            println!("{}", cmd_str.dim());
+            let status = command.spawn()?.wait()?;
+            std::process::exit(status.code().unwrap_or(1));
+        }
+    }
+
+    Ok(())
+}
+
 pub fn run_matches(
     matches: Vec<(DsFile, Vec<Match>)>,
     args_str: &[&str],
@@ -91,8 +119,11 @@ pub fn run_matches(
         Runner::Help => {
             let lines =
                 file.get_help_rows_for_match(last_match, &current_dir, git_root.as_ref())?;
-            let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
-            print_lines(file, &lines, max_size);
+
+            let max_size = lines.iter().map(HelpRow::len).max().unwrap_or(0);
+            let row = run_tui(vec![(file.clone(), lines)], max_size);
+            run_help_row(row.unwrap())?;
+
             std::process::exit(0);
         }
     }
@@ -135,32 +166,7 @@ pub fn render_help(
 
     // Otherwise, we run the TUI
     let row = run_tui(groups, max_size).unwrap();
-
-    if let Some(row) = row {
-        let file = DsFile::from_file(&row.file_name)?;
-        let (command, parents) = file.command_from_keys(&row.key)?;
-        let (envs, default_env) = command.get_envs(&parents);
-
-        let mut env = None;
-        if let Some(env_key) = &row.env {
-            env = envs.get(env_key);
-        };
-
-        if let Some(default) = default_env
-            && env.is_none()
-        {
-            env = envs.get(&default.to_string());
-        }
-
-        let runner = Runner::from_command(command, &parents, &[], env.map(|f| *f))?;
-        if let Runner::Command(cmd_str, mut command) = runner {
-            println!("{}", cmd_str.dim());
-            let status = command.spawn()?.wait()?;
-            std::process::exit(status.code().unwrap_or(1));
-        }
-    }
-
-    Ok(())
+    run_help_row(row)
 }
 
 /// Run the CLI application

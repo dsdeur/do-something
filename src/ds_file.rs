@@ -9,6 +9,7 @@ use std::{fs, path::Path};
 
 /// Represents a command file, which contains a group of commands
 /// Mainly to have a common interface for loading and matching commands.
+#[derive(Clone)]
 pub struct DsFile {
     pub group: Group,
     pub file_name: String,
