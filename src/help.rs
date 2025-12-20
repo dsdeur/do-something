@@ -54,10 +54,10 @@ impl HelpRow {
             .unwrap_or_default()
     }
 
-    pub fn get_key_and_env(&self) -> Vec<&str> {
-        let mut res = self.key.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
+    pub fn get_key_and_env(&self) -> Vec<String> {
+        let mut res = self.key.iter().cloned().collect::<Vec<String>>();
         if let Some(env) = &self.env {
-            res.push(env);
+            res.push(env.clone());
         }
         res
     }
@@ -183,7 +183,7 @@ impl HelpRow {
 }
 
 /// Print the help lines for a given file
-pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
+pub fn print_lines(file: &DsFile, lines: &[HelpRow], max_width: usize) {
     if lines.is_empty() {
         return;
     }

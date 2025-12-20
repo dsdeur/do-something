@@ -1,7 +1,6 @@
 use crate::{
     command::{Command, CommandConfig},
-    ds_file::Match,
-    env::{Env, RunnerEnv, match_env},
+    env::{Env, RunnerEnv},
     group::Group,
 };
 use anyhow::Result;
@@ -87,22 +86,13 @@ impl Runner {
     /// - Returns a `Runner` enum that can either be a command to run or a help group
     /// - If a group has a default command, it will create a command runner for that
     /// - It handles root paths and arguments
-    pub fn from_match(
-        command_match: &Match,
-        parents: &[&Group],
-        target: &[&str],
+    pub fn from_command(
         command: &Command,
+        parents: &[&Group],
+        extra_args: &[&str],
+        env: Option<&Env>,
     ) -> Result<Self> {
         let path = command.get_command_root_path(parents)?;
-        let (env, default_env) = command.get_envs(parents);
-        let mut extra_args = &target[command_match.score..];
-
-        let env = if let Some((matched_env, args)) = match_env(env, default_env, extra_args)? {
-            extra_args = args;
-            Some(matched_env)
-        } else {
-            None
-        };
 
         let runner = match command {
             Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args, env)?,

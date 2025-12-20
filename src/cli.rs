@@ -2,6 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match},
+    env::match_env,
     help::{HelpRow, print_lines},
     runner::Runner,
     tui::run_tui,
@@ -68,7 +69,17 @@ pub fn run_matches(
         .ok_or_else(|| anyhow::anyhow!("No matching command found in file"))?;
 
     let (command, parents) = file.command_from_keys(&last_match.keys)?;
-    let runner = Runner::from_match(last_match, &parents, args_str, command)?;
+    let (env, default_env) = command.get_envs(&parents);
+    let mut extra_args = &args_str[last_match.score..];
+
+    let env = if let Some((matched_env, args)) = match_env(env, default_env, extra_args)? {
+        extra_args = args;
+        Some(matched_env)
+    } else {
+        None
+    };
+
+    let runner = Runner::from_command(command, &parents, extra_args, env)?;
 
     // Execute the runner
     match runner {
@@ -81,7 +92,7 @@ pub fn run_matches(
             let lines =
                 file.get_help_rows_for_match(last_match, &current_dir, git_root.as_ref())?;
             let max_size = lines.iter().map(|row| row.len()).max().unwrap_or(0);
-            print_lines(file, lines, max_size);
+            print_lines(file, &lines, max_size);
             std::process::exit(0);
         }
     }
@@ -92,7 +103,6 @@ pub fn render_help(
     paths: &[PathBuf],
     current_dir: impl AsRef<Path>,
     git_root: Option<impl AsRef<Path>>,
-    config: &config::GlobalConfig,
 ) -> Result<()> {
     let mut groups = Vec::new();
 
@@ -118,7 +128,7 @@ pub fn render_help(
     // If not a terminal, we just print the help
     if !std::io::stdout().is_terminal() {
         for (file, rows) in groups {
-            print_lines(&file, rows, max_size);
+            print_lines(&file, &rows, max_size);
         }
         return Ok(());
     }
@@ -127,10 +137,27 @@ pub fn render_help(
     let row = run_tui(groups, max_size).unwrap();
 
     if let Some(row) = row {
-        let args_str = &row.get_key_and_env();
-        let paths = vec![PathBuf::from(&row.file_name)];
-        let matches = match_command(config, &paths, args_str, &current_dir, git_root.as_ref())?;
-        run_matches(matches, args_str, &current_dir, git_root.as_ref())?;
+        let file = DsFile::from_file(&row.file_name)?;
+        let (command, parents) = file.command_from_keys(&row.key)?;
+        let (envs, default_env) = command.get_envs(&parents);
+
+        let mut env = None;
+        if let Some(env_key) = &row.env {
+            env = envs.get(env_key);
+        };
+
+        if let Some(default) = default_env
+            && env.is_none()
+        {
+            env = envs.get(&default.to_string());
+        }
+
+        let runner = Runner::from_command(command, &parents, &[], env.map(|f| *f))?;
+        if let Runner::Command(cmd_str, mut command) = runner {
+            println!("{}", cmd_str.dim());
+            let status = command.spawn()?.wait()?;
+            std::process::exit(status.code().unwrap_or(1));
+        }
     }
 
     Ok(())
@@ -152,7 +179,7 @@ pub fn run() -> Result<()> {
 
     if args_str.is_empty() {
         // If no arguments are provided, we render the help for all commands
-        render_help(&paths, &current_dir, git_root.as_ref(), &config)?;
+        render_help(&paths, &current_dir, git_root.as_ref())?;
         std::process::exit(0);
     }
 
