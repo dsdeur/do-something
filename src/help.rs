@@ -102,40 +102,6 @@ impl HelpRow {
         Some(aliases.collect::<Vec<_>>().join(" "))
     }
 
-    pub fn format_colored(&self) -> String {
-        let group_keys = self.get_group_keys();
-        let groups = if group_keys.is_empty() {
-            group_keys
-        } else {
-            format!("{} ", group_keys)
-        };
-
-        let key = self.get_key();
-        let prefix = self.prefix;
-
-        let env = match &self.env {
-            Some(env) => format!(" {}", env),
-            None => "".to_string(),
-        };
-
-        format!(
-            "{} {}{}{}",
-            prefix.grey(),
-            groups.dark_blue().bold(),
-            key.white().bold(),
-            env.magenta().bold(),
-        )
-    }
-
-    pub fn get_id(&self) -> String {
-        let env = match &self.env {
-            Some(env) => format!(".{}", env),
-            None => "".to_string(),
-        };
-
-        format!("{}\t{}{}", self.file_name, self.key.join("."), env)
-    }
-
     pub fn to_string(&self, max_size: usize) -> String {
         let group_keys = self.get_group_keys();
         let groups = if group_keys.is_empty() {
