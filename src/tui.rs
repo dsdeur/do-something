@@ -13,8 +13,11 @@
 //! [examples]: https://github.com/ratatui/ratatui/blob/main/examples
 //! [examples readme]: https://github.com/ratatui/ratatui/blob/main/examples/README.md
 
+use std::sync::Arc;
+
 use color_eyre::{Result, eyre::Context};
 
+use nucleo::Nucleo;
 use ratatui::prelude::*;
 use ratatui::style::palette::tailwind::SLATE;
 use ratatui::widgets::{HighlightSpacing, ListItem, ListState};
@@ -31,11 +34,20 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::ds_file::DsFile;
 use crate::help::HelpRow;
 
+#[derive(Clone)]
+struct SearchRow {
+    row: HelpRow,
+    group_index: usize,
+    row_index: usize,
+}
+
 struct App {
     search_input: Input,
     groups: Vec<(DsFile, Vec<HelpRow>)>,
     cursor_position: (u16, u16),
     list_state: ListState,
+    nucleo: Nucleo<SearchRow>,
+    matches: Vec<SearchRow>,
 }
 
 impl App {
@@ -62,10 +74,32 @@ impl App {
                     KeyCode::End => self.select_last(),
                     _ => {
                         self.search_input.handle_event(&event);
+
+                        self.nucleo.pattern.reparse(
+                            0,
+                            &self.search_input.value(),
+                            nucleo::pattern::CaseMatching::Smart,
+                            nucleo::pattern::Normalization::Smart,
+                            false,
+                        );
+
+                        self.update_filtered_items();
                     }
                 }
             }
         }
+    }
+
+    fn update_filtered_items(&mut self) {
+        // Tick to process matching (with 10ms timeout)
+        self.nucleo.tick(10);
+
+        let snapshot = self.nucleo.snapshot();
+        self.matches = snapshot
+            .matched_items(..)
+            .take(100)
+            .map(|item| item.data.clone())
+            .collect();
     }
 
     fn select_none(&mut self) {
@@ -196,23 +230,31 @@ impl App {
     }
 
     fn render_list(&mut self, area: Rect, buf: &mut Buffer) {
-        let mut items: Vec<ListItem> = Vec::new();
+        let mut items = Vec::new();
 
-        for (file, rows) in self.groups.iter().rev() {
-            if let Some(name) = &file.group.name {
-                let line =
-                    Span::styled(name.as_str(), Style::default().fg(Color::LightGreen).bold());
+        if self.search_input.value().is_empty() {
+            for (file, rows) in self.groups.iter().rev() {
+                if let Some(name) = &file.group.name {
+                    let line =
+                        Span::styled(name.as_str(), Style::default().fg(Color::LightGreen).bold());
 
-                items.push(ListItem::new(vec![Line::from(""), Line::from(vec![line])]));
-            } else {
-                items.push(ListItem::new(vec![Line::from("")]));
+                    items.push(ListItem::new(vec![Line::from(""), Line::from(vec![line])]));
+                } else {
+                    items.push(ListItem::new(vec![Line::from("")]));
+                }
+
+                for row in rows {
+                    let item = ListItem::from(row);
+                    items.push(item);
+                }
             }
-
-            for row in rows {
-                let item = ListItem::from(row);
-                items.push(item);
-            }
-        }
+        } else {
+            items = self
+                .matches
+                .iter()
+                .map(|search_row| ListItem::from(&search_row.row))
+                .collect();
+        };
 
         let list = ratatui::widgets::List::new(items)
             .highlight_style(SELECTED_STYLE)
@@ -232,16 +274,41 @@ impl From<&HelpRow> for ListItem<'_> {
     }
 }
 
+fn create_nucleo(groups: &Vec<(DsFile, Vec<HelpRow>)>) -> Nucleo<SearchRow> {
+    let nucleo: Nucleo<SearchRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+    let injector = nucleo.injector();
+
+    for (group_index, (_file, rows)) in groups.iter().enumerate() {
+        for (row_index, row) in rows.iter().enumerate() {
+            let search_row = SearchRow {
+                row: row.clone(),
+                group_index,
+                row_index,
+            };
+
+            injector.push(search_row, |r, cols| {
+                cols[0] = r.row.print().into();
+            });
+        }
+    }
+
+    nucleo
+}
+
 pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>) -> Result<()> {
     color_eyre::install()?; // augment errors / panics with easy to read messages
     let mut terminal = ratatui::init();
+    let nucleo = create_nucleo(&groups);
 
     let app = App {
         search_input: Input::new("".to_string()),
         groups: groups,
         cursor_position: (0, 0),
         list_state: ListState::default(),
+        nucleo,
+        matches: Vec::new(),
     };
+
     let app_result = app.run(&mut terminal).context("app loop failed");
 
     ratatui::restore();
