@@ -2,7 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match},
-    help::{HelpRow, print_lines, run_fzf},
+    help::{HelpRow, print_lines},
     runner::Runner,
     tui::run_tui,
 };
@@ -114,31 +114,16 @@ pub fn render_help(
         .max()
         .unwrap_or(0);
 
-    run_tui(groups).unwrap();
-    return Ok(());
+    let row = run_tui(groups, max_size).unwrap();
 
-    match config.help_mode {
-        config::HelpMode::Fzf => {
-            let res = run_fzf(groups, max_size)?;
-            if let Some((file_name, key)) = res {
-                let args_str = &key.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
-                // Get the runner based on the provided arguments
-                let paths = vec![PathBuf::from(file_name)];
-                let matches =
-                    match_command(&config, &paths, args_str, &current_dir, git_root.as_ref())?;
-
-                run_matches(matches, &args_str, &current_dir, git_root.as_ref())?;
-            }
-
-            Ok(())
-        }
-        config::HelpMode::List => {
-            for (file, rows) in groups {
-                print_lines(&file, rows, max_size);
-            }
-            Ok(())
-        }
+    if let Some(row) = row {
+        let args_str = &row.get_key_and_env();
+        let paths = vec![PathBuf::from(&row.file_name)];
+        let matches = match_command(&config, &paths, &args_str, &current_dir, git_root.as_ref())?;
+        run_matches(matches, &args_str, &current_dir, git_root.as_ref())?;
     }
+
+    Ok(())
 }
 
 /// Run the CLI application

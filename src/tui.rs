@@ -34,25 +34,21 @@ use tui_input::backend::crossterm::EventHandler;
 use crate::ds_file::DsFile;
 use crate::help::HelpRow;
 
-#[derive(Clone)]
-struct SearchRow {
-    row: HelpRow,
-    group_index: usize,
-    row_index: usize,
-}
-
 struct App {
     search_input: Input,
     groups: Vec<(DsFile, Vec<HelpRow>)>,
     cursor_position: (u16, u16),
     list_state: ListState,
-    nucleo: Nucleo<SearchRow>,
-    matches: Vec<SearchRow>,
+    nucleo: Nucleo<HelpRow>,
+    matches: Vec<HelpRow>,
+    max_size: usize,
 }
 
 impl App {
-    fn run(mut self, terminal: &mut DefaultTerminal) -> Result<()> {
+    fn run(mut self, terminal: &mut DefaultTerminal) -> Result<Option<HelpRow>> {
         self.select_first();
+        self.select_next();
+
         loop {
             terminal.draw(|frame| {
                 frame.render_widget(&mut self, frame.area());
@@ -64,26 +60,58 @@ impl App {
             if let Event::Key(key) = event {
                 match key.code {
                     KeyCode::Char('c') if key.modifiers.contains(event::KeyModifiers::CONTROL) => {
-                        return Ok(());
+                        return Ok(None);
                     }
-                    KeyCode::Esc => return Ok(()),
+                    KeyCode::Esc => return Ok(None),
                     KeyCode::Left => self.select_none(),
                     KeyCode::Down => self.select_next(),
                     KeyCode::Up => self.select_previous(),
                     KeyCode::Home => self.select_first(),
                     KeyCode::End => self.select_last(),
+                    KeyCode::Enter => {
+                        if let Some(selected) = self.list_state.selected() {
+                            if !self.search_input.value().is_empty() {
+                                if let Some(row) = self.matches.get(selected) {
+                                    return Ok(Some(row.clone()));
+                                }
+                            } else {
+                                let mut index = 0;
+                                for (_file, rows) in self.groups.iter().rev() {
+                                    if index == selected {
+                                        break;
+                                    }
+
+                                    // Header
+                                    index += 1;
+
+                                    for row in rows {
+                                        if index == selected {
+                                            return Ok(Some(row.clone()));
+                                        }
+
+                                        index += 1;
+                                    }
+                                }
+                            }
+                        }
+                    }
                     _ => {
                         self.search_input.handle_event(&event);
 
-                        self.nucleo.pattern.reparse(
-                            0,
-                            &self.search_input.value(),
-                            nucleo::pattern::CaseMatching::Smart,
-                            nucleo::pattern::Normalization::Smart,
-                            false,
-                        );
+                        if !self.search_input.value().is_empty() {
+                            self.nucleo.pattern.reparse(
+                                0,
+                                &self.search_input.value(),
+                                nucleo::pattern::CaseMatching::Smart,
+                                nucleo::pattern::Normalization::Smart,
+                                false,
+                            );
 
-                        self.update_filtered_items();
+                            // Update filtered items
+                            self.update_filtered_items();
+                            // Select the best match
+                            self.select_first();
+                        }
                     }
                 }
             }
@@ -106,29 +134,14 @@ impl App {
         self.list_state.select(None);
     }
 
-    fn is_selected_header(&self) -> bool {
-        if let Some(selected) = self.list_state.selected() {
-            let mut index = 0;
-
-            for (_file, rows) in self.groups.iter().rev() {
-                // Check header
-                if index == selected {
-                    return true;
-                }
-                index += 1;
-
-                // Skip rows
-                index += rows.len();
-            }
+    fn get_max_index(&self) -> usize {
+        if !self.search_input.value().is_empty() {
+            return self.matches.len() - 1;
         }
 
-        false
-    }
-
-    fn get_max_index(&self) -> usize {
         let mut max_index = 0;
 
-        for (_file, rows) in self.groups.iter() {
+        for (_file, rows) in self.groups.iter().rev() {
             // Header
             max_index += 1;
             // Rows
@@ -139,44 +152,27 @@ impl App {
     }
 
     fn select_next(&mut self) {
-        self.list_state.select_next();
-
         if let Some(index) = self.list_state.selected() {
-            if index > self.get_max_index() {
+            if index == self.get_max_index() {
                 self.select_first();
                 return;
             }
-
-            if self.is_selected_header() {
-                self.select_next();
-            }
         }
+        self.list_state.select_next();
     }
     fn select_previous(&mut self) {
-        self.list_state.select_previous();
-
         if let Some(index) = self.list_state.selected() {
             if index == 0 {
                 self.select_last();
                 return;
             }
-
-            if self.is_selected_header() {
-                if index == 1 {
-                    self.select_last();
-                } else {
-                    self.select_previous();
-                }
-            }
         }
+
+        self.list_state.select_previous();
     }
 
     fn select_first(&mut self) {
         self.list_state.select_first();
-
-        if self.is_selected_header() {
-            self.select_next();
-        }
     }
 
     fn select_last(&mut self) {
@@ -244,7 +240,7 @@ impl App {
                 }
 
                 for row in rows {
-                    let item = ListItem::from(row);
+                    let item = ListItem::new(row.to_list_line(self.max_size));
                     items.push(item);
                 }
             }
@@ -252,7 +248,7 @@ impl App {
             items = self
                 .matches
                 .iter()
-                .map(|search_row| ListItem::from(&search_row.row))
+                .map(|row| ListItem::new(row.to_list_line(self.max_size)))
                 .collect();
         };
 
@@ -267,27 +263,14 @@ impl App {
     }
 }
 
-impl From<&HelpRow> for ListItem<'_> {
-    fn from(row: &HelpRow) -> Self {
-        let line = row.to_list_line();
-        ListItem::new(line)
-    }
-}
-
-fn create_nucleo(groups: &Vec<(DsFile, Vec<HelpRow>)>) -> Nucleo<SearchRow> {
-    let nucleo: Nucleo<SearchRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
+fn create_nucleo(groups: &Vec<(DsFile, Vec<HelpRow>)>, max_size: usize) -> Nucleo<HelpRow> {
+    let nucleo: Nucleo<HelpRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
     let injector = nucleo.injector();
 
-    for (group_index, (_file, rows)) in groups.iter().enumerate() {
-        for (row_index, row) in rows.iter().enumerate() {
-            let search_row = SearchRow {
-                row: row.clone(),
-                group_index,
-                row_index,
-            };
-
-            injector.push(search_row, |r, cols| {
-                cols[0] = r.row.print().into();
+    for (_file, rows) in groups.iter().rev() {
+        for row in rows.iter() {
+            injector.push(row.clone(), |r, cols| {
+                cols[0] = r.to_string(max_size).into();
             });
         }
     }
@@ -295,10 +278,10 @@ fn create_nucleo(groups: &Vec<(DsFile, Vec<HelpRow>)>) -> Nucleo<SearchRow> {
     nucleo
 }
 
-pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>) -> Result<()> {
+pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>, max_size: usize) -> Result<Option<HelpRow>> {
     color_eyre::install()?; // augment errors / panics with easy to read messages
     let mut terminal = ratatui::init();
-    let nucleo = create_nucleo(&groups);
+    let nucleo = create_nucleo(&groups, max_size);
 
     let app = App {
         search_input: Input::new("".to_string()),
@@ -307,6 +290,7 @@ pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>) -> Result<()> {
         list_state: ListState::default(),
         nucleo,
         matches: Vec::new(),
+        max_size,
     };
 
     let app_result = app.run(&mut terminal).context("app loop failed");

@@ -61,6 +61,14 @@ impl HelpRow {
             .unwrap_or_default()
     }
 
+    pub fn get_key_and_env(&self) -> Vec<&str> {
+        let mut res = self.key.iter().map(|s| s.as_str()).collect::<Vec<&str>>();
+        if let Some(env) = &self.env {
+            res.push(env);
+        }
+        res
+    }
+
     /// Get the length of the row, to calculate how much space it will take in the output
     #[must_use]
     pub fn len(&self) -> usize {
@@ -130,7 +138,7 @@ impl HelpRow {
         format!("{}\t{}{}", self.file_name, self.key.join("."), env)
     }
 
-    pub fn print(&self) -> String {
+    pub fn to_string(&self, max_size: usize) -> String {
         let group_keys = self.get_group_keys();
         let groups = if group_keys.is_empty() {
             group_keys
@@ -146,10 +154,18 @@ impl HelpRow {
             None => "".to_string(),
         };
 
-        format!("{} {}{}{}", prefix, groups, key, env)
+        format!(
+            "{} {}{}{} {}{}",
+            prefix,
+            groups,
+            key,
+            env,
+            " ".repeat(max_size - self.len()),
+            self.command
+        )
     }
 
-    pub fn to_list_line(&self) -> Vec<Line<'static>> {
+    pub fn to_list_line(&self, max_size: usize) -> Vec<Line<'static>> {
         let group_keys = self.get_group_keys();
 
         let key = self.get_key();
@@ -179,10 +195,15 @@ impl HelpRow {
             spans.push(Span::styled(
                 format!(" {}", env),
                 Style::default()
-                    .fg(Color::Magenta)
+                    .fg(Color::LightMagenta)
                     .add_modifier(Modifier::BOLD),
             ));
         };
+
+        spans.push(Span::styled(
+            format!(" {}{}", " ".repeat(max_size - self.len()), self.command),
+            Style::default().fg(Color::LightYellow),
+        ));
 
         let mut lines = vec![Line::from(spans)];
         let aliases = self.aliases();
