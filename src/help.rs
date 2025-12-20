@@ -4,7 +4,6 @@ use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
 };
-use std::io::IsTerminal;
 
 /// Represents a row in the help output
 #[derive(Debug, Clone)]
@@ -225,15 +224,11 @@ pub fn print_lines(file: &DsFile, lines: Vec<HelpRow>, max_width: usize) {
     }
 
     if let Some(name) = &file.group.name {
-        println!("\n{}", name.as_str().stylize().green().bold());
+        println!("\n{}", name);
     }
 
     if let Some(description) = &file.group.description {
-        if std::io::stdout().is_terminal() {
-            println!("{}", description.as_str().stylize().dark_yellow().dim());
-        } else {
-            println!("{}", description);
-        }
+        println!("{}", description);
     }
 
     for row in lines {
