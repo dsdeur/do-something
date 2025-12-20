@@ -204,10 +204,10 @@ impl DsFile {
         let mut envs = envs
             .keys()
             .map(|f| {
-                if let Some(default_env) = default_env {
-                    if *f == default_env {
-                        return Some(format!("({})", f));
-                    }
+                if let Some(default_env) = default_env
+                    && *f == default_env
+                {
+                    return Some(format!("({})", f));
                 }
 
                 Some(f.to_string())

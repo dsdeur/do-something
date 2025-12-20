@@ -117,8 +117,8 @@ pub fn match_env<'a>(
         ));
     }
 
-    if let Some(&env) = args.get(0).and_then(|&s| envs.get(&s.to_string())) {
-        return Ok(Some((env, &args[1..])));
+    if let Some(&env) = args.first().and_then(|&s| envs.get(&s.to_string())) {
+        Ok(Some((env, &args[1..])))
     } else {
         if let Some(default_key) = default_env {
             if let Some(&env) = envs.get(&default_key.to_string()) {
@@ -129,10 +129,10 @@ pub fn match_env<'a>(
                     default_key
                 ));
             }
-        } else {
-            return Err(anyhow::anyhow!(
-                "Environment not found, and no default environment is set",
-            ));
         }
+
+        Err(anyhow::anyhow!(
+            "Environment not found, and no default environment is set",
+        ))
     }
 }

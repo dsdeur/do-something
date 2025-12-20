@@ -74,7 +74,7 @@ pub enum Runner {
 impl Runner {
     /// Create a new command runner
     pub fn new_command(
-        command: &String,
+        command: &str,
         path: Option<impl AsRef<Path>>,
         args: &[&str],
         env: Option<&Env>,

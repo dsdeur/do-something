@@ -101,7 +101,7 @@ impl App {
                         if !self.search_input.value().is_empty() {
                             self.nucleo.pattern.reparse(
                                 0,
-                                &self.search_input.value(),
+                                self.search_input.value(),
                                 nucleo::pattern::CaseMatching::Smart,
                                 nucleo::pattern::Normalization::Smart,
                                 false,
@@ -152,20 +152,21 @@ impl App {
     }
 
     fn select_next(&mut self) {
-        if let Some(index) = self.list_state.selected() {
-            if index == self.get_max_index() {
-                self.select_first();
-                return;
-            }
+        if let Some(index) = self.list_state.selected()
+            && index == self.get_max_index()
+        {
+            self.select_first();
+            return;
         }
+
         self.list_state.select_next();
     }
     fn select_previous(&mut self) {
-        if let Some(index) = self.list_state.selected() {
-            if index == 0 {
-                self.select_last();
-                return;
-            }
+        if let Some(index) = self.list_state.selected()
+            && index == 0
+        {
+            self.select_last();
+            return;
         }
 
         self.list_state.select_previous();
@@ -214,7 +215,7 @@ impl App {
             .style(Style::default().fg(Color::Blue).bold())
             .render(prompt_area, buf);
 
-        let width = input_area.width.max(0) - 0;
+        let width = input_area.width;
         let scroll = self.search_input.visual_scroll(width as usize);
         Paragraph::new(self.search_input.value())
             .block(Block::default())
@@ -263,7 +264,7 @@ impl App {
     }
 }
 
-fn create_nucleo(groups: &Vec<(DsFile, Vec<HelpRow>)>, max_size: usize) -> Nucleo<HelpRow> {
+fn create_nucleo(groups: &[(DsFile, Vec<HelpRow>)], max_size: usize) -> Nucleo<HelpRow> {
     let nucleo: Nucleo<HelpRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
     let injector = nucleo.injector();
 
@@ -285,7 +286,7 @@ pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>, max_size: usize) -> Result<O
 
     let app = App {
         search_input: Input::new("".to_string()),
-        groups: groups,
+        groups,
         cursor_position: (0, 0),
         list_state: ListState::default(),
         nucleo,

@@ -68,7 +68,7 @@ pub fn run_matches(
         .ok_or_else(|| anyhow::anyhow!("No matching command found in file"))?;
 
     let (command, parents) = file.command_from_keys(&last_match.keys)?;
-    let runner = Runner::from_match(last_match, &parents, &args_str, command)?;
+    let runner = Runner::from_match(last_match, &parents, args_str, command)?;
 
     // Execute the runner
     match runner {
@@ -129,8 +129,8 @@ pub fn render_help(
     if let Some(row) = row {
         let args_str = &row.get_key_and_env();
         let paths = vec![PathBuf::from(&row.file_name)];
-        let matches = match_command(&config, &paths, &args_str, &current_dir, git_root.as_ref())?;
-        run_matches(matches, &args_str, &current_dir, git_root.as_ref())?;
+        let matches = match_command(config, &paths, args_str, &current_dir, git_root.as_ref())?;
+        run_matches(matches, args_str, &current_dir, git_root.as_ref())?;
     }
 
     Ok(())
