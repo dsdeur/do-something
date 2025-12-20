@@ -136,3 +136,22 @@ pub fn match_env<'a>(
         ))
     }
 }
+
+pub fn get_env_by_key<'a>(
+    envs: BTreeMap<&'a String, &'a Env>,
+    key: Option<String>,
+    default_env: Option<&str>,
+) -> Option<&'a Env> {
+    let mut env = None;
+    if let Some(env_key) = key {
+        env = envs.get(&env_key.to_string());
+    };
+
+    if let Some(default) = default_env
+        && env.is_none()
+    {
+        env = envs.get(&default.to_string());
+    }
+
+    env.map(|f| *f)
+}

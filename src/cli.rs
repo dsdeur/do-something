@@ -2,7 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     ds_file::{DsFile, Match},
-    env::match_env,
+    env::{get_env_by_key, match_env},
     help::{HelpRow, print_lines},
     runner::Runner,
     tui::run_tui,
@@ -57,19 +57,9 @@ pub fn run_help_row(row: Option<HelpRow>) -> Result<()> {
         let file = DsFile::from_file(&row.file_name)?;
         let (command, parents) = file.command_from_keys(&row.key)?;
         let (envs, default_env) = command.get_envs(&parents);
+        let env = get_env_by_key(envs, row.env, default_env);
+        let runner = Runner::from_command(command, &parents, &[], env)?;
 
-        let mut env = None;
-        if let Some(env_key) = &row.env {
-            env = envs.get(env_key);
-        };
-
-        if let Some(default) = default_env
-            && env.is_none()
-        {
-            env = envs.get(&default.to_string());
-        }
-
-        let runner = Runner::from_command(command, &parents, &[], env.map(|f| *f))?;
         if let Runner::Command(cmd_str, mut command) = runner {
             println!("{}", cmd_str.dim());
             let status = command.spawn()?.wait()?;
