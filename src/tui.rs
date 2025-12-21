@@ -212,26 +212,25 @@ impl App {
 
         if self.search_input.value().is_empty() {
             for (file, rows) in self.groups.iter().rev() {
-                if let Some(name) = &file.group.name {
-                    let mut lines = vec![
-                        Line::from(""),
-                        Line::from(Span::styled(
-                            name.as_str(),
-                            Style::default().fg(Color::LightGreen).bold(),
-                        )),
-                    ];
+                let group = &file.group;
+                let file_name = &file.file_name;
+                let name = group.name.as_ref().unwrap_or(file_name);
 
-                    if let Some(description) = &file.group.description {
-                        lines.push(Line::from(Span::styled(
-                            description.as_str(),
-                            Style::default().fg(Color::Gray).dim(),
-                        )));
-                    }
+                let mut lines = vec![
+                    Line::from(""),
+                    Line::from(Span::styled(
+                        name.as_str(),
+                        Style::default().fg(Color::LightGreen).bold(),
+                    )),
+                ];
 
-                    items.push(ListItem::new(lines));
-                } else {
-                    items.push(ListItem::new(vec![Line::from("")]));
-                }
+                let path = &file.path_string;
+                lines.push(Line::from(Span::styled(
+                    group.description.as_deref().unwrap_or(path),
+                    Style::default().fg(Color::Gray).dim(),
+                )));
+
+                items.push(ListItem::new(lines));
 
                 for row in rows {
                     let item = ListItem::new(row.to_list_line(self.max_size));

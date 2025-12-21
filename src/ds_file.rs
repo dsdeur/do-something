@@ -4,8 +4,11 @@ use crate::{
     group::{Group, Walk},
     help::HelpRow,
 };
-use anyhow::Result;
-use std::{fs, path::Path};
+use anyhow::{Result, anyhow};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 /// Represents a command file, which contains a group of commands
 /// Mainly to have a common interface for loading and matching commands.
@@ -13,6 +16,8 @@ use std::{fs, path::Path};
 pub struct DsFile {
     pub group: Group,
     pub file_name: String,
+    pub path: PathBuf,
+    pub path_string: String,
 }
 
 /// Represents a match for a command, containing the score and keys
@@ -77,22 +82,27 @@ impl DsFile {
 
         let content = fs::read_to_string(&path)?;
         let mut group: Group = serde_json::from_str(&content)?;
+        let file_name = path
+            .as_ref()
+            .file_name()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow!("Failed to get file name"))?;
 
         if group.name.is_none() {
-            group.name = path
-                .as_ref()
-                .file_name()
-                .and_then(|s| s.to_str())
-                .map(|s| s.to_string());
+            group.name = Some(file_name.clone());
         }
 
+        let path_string = collapse_to_tilde(path.as_ref());
         if group.description.is_none() {
-            group.description = Some(collapse_to_tilde(path.as_ref()));
+            group.description = Some(path_string.clone());
         }
 
         Ok(Self {
             group,
-            file_name: path.as_ref().to_string_lossy().to_string(),
+            file_name,
+            path_string,
+            path: path.as_ref().to_path_buf(),
         })
     }
 
