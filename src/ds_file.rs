@@ -235,7 +235,7 @@ impl DsFile {
                     .iter()
                     .map(|env| {
                         HelpRow::new(
-                            self.file_name.clone(),
+                            self.path.clone(),
                             keys.iter().map(|s| s.to_string()).collect(),
                             match_.alias_keys.clone(),
                             cmd.clone(),
@@ -252,7 +252,7 @@ impl DsFile {
                     .iter()
                     .map(|env| {
                         HelpRow::new(
-                            self.file_name.clone(),
+                            self.path.clone(),
                             keys.iter().map(|s| s.to_string()).collect(),
                             match_.alias_keys.clone(),
                             command.clone(),

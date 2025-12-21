@@ -260,10 +260,10 @@ fn create_nucleo(groups: &[(DsFile, Vec<HelpRow>)], max_size: usize) -> Nucleo<H
     let nucleo: Nucleo<HelpRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
     let injector = nucleo.injector();
 
-    for (_file, rows) in groups.iter().rev() {
+    for (file, rows) in groups.iter().rev() {
         for row in rows.iter() {
             injector.push(row.clone(), |r, cols| {
-                cols[0] = format!("{} {}", r.file_name, r.to_string(max_size)).into();
+                cols[0] = format!("{} {}", file.path_string, r.to_string(max_size)).into();
             });
         }
     }

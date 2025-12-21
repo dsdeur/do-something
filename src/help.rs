@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::ds_file::DsFile;
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -7,7 +9,7 @@ use ratatui::{
 /// Represents a row in the help output
 #[derive(Debug, Clone)]
 pub struct HelpRow {
-    pub file_name: String,
+    pub file_path: PathBuf,
     pub key: Vec<String>,
     pub alias_keys: Vec<Vec<String>>,
     pub prefix: &'static str,
@@ -18,14 +20,14 @@ pub struct HelpRow {
 impl HelpRow {
     /// Create a new help row with the given alias keys and command
     pub fn new(
-        file_name: String,
+        file_name: PathBuf,
         key: Vec<String>,
         alias_keys: Vec<Vec<String>>,
         command: String,
         env: Option<String>,
     ) -> Self {
         HelpRow {
-            file_name,
+            file_path: file_name,
             key,
             prefix: "ds",
             alias_keys,
