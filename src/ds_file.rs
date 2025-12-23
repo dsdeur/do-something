@@ -23,6 +23,7 @@ pub struct DsFile {
 /// Represents a match for a command, containing the score and keys
 #[derive(Debug)]
 pub struct Match {
+    pub file_path: PathBuf,
     /// The score of the match, which is the number of levels that match
     pub score: usize,
     /// The path in the command file that matched
@@ -34,7 +35,12 @@ pub struct Match {
 impl Match {
     /// Calculate the match score for a command based on the provided matches
     /// - The score is the number of levels that match
-    pub fn from_command(keys: &[&str], alias_keys: &[Vec<&str>], target: &[&str]) -> Option<Self> {
+    pub fn from_command(
+        file_path: PathBuf,
+        keys: &[&str],
+        alias_keys: &[Vec<&str>],
+        target: &[&str],
+    ) -> Option<Self> {
         let mut score = 0;
 
         for (i, key) in target.iter().enumerate() {
@@ -60,6 +66,7 @@ impl Match {
         // If the score is greater than 0, we return a match
         // Only do all the copying if we have an actual match
         Some(Match {
+            file_path,
             score,
             keys: keys.iter().map(|s| s.to_string()).collect(),
             alias_keys: alias_keys
@@ -172,7 +179,7 @@ impl DsFile {
 
             // Calculate the match score
             let command_keys = cmd.get_keys(keys, parents);
-            let m = Match::from_command(keys, &command_keys, target);
+            let m = Match::from_command(self.path.clone(), keys, &command_keys, target);
 
             if let Some(m) = m {
                 matches.push(m);
