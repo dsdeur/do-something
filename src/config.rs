@@ -33,9 +33,6 @@ pub struct GlobalConfig {
     /// Optional list of files to to collect commands from
     #[serde(default)]
     pub ds_files: Option<Vec<String>>,
-    /// Help mode, when no command is provided, or group help is shown
-    #[serde(default)]
-    pub help_mode: HelpMode,
 }
 
 /// Get the configuration directory path, typically ~/.config/dosomething
@@ -48,7 +45,6 @@ impl Default for GlobalConfig {
         GlobalConfig {
             on_conflict: OnConflict::Error,
             ds_files: None,
-            help_mode: HelpMode::List,
         }
     }
 }
