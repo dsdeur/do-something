@@ -2,6 +2,7 @@ pub mod cli;
 pub mod command;
 pub mod config;
 pub mod dir;
+pub mod do_something;
 pub mod ds_file;
 pub mod env;
 pub mod group;
