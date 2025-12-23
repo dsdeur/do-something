@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, env, path::PathBuf};
 
 /// Configure how to handle commands with the same key
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Copy, Clone)]
 pub enum OnConflict {
     /// Keep the last defined command
     #[default]
@@ -25,7 +25,7 @@ pub enum HelpMode {
 
 /// Global configuration for the application
 /// Loaded from ~/.config/dosomething/config.json
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GlobalConfig {
     /// Behavior on command key conflicts
     #[serde(default)]
@@ -129,6 +129,7 @@ impl GlobalConfig {
             }
         }
 
-        Ok(deduped)
+        // Reverse to match in the correct order
+        Ok(deduped.into_iter().rev().collect())
     }
 }

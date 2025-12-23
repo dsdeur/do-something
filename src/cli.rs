@@ -27,7 +27,7 @@ pub fn match_command(
     let mut files = Vec::new();
     let mut match_count = 0;
 
-    for path in paths.iter().rev() {
+    for path in paths.iter() {
         let file = DsFile::from_file(path)?;
         let matches = file.get_matches(target, &current_dir, git_root.as_ref())?;
 

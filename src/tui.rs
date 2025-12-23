@@ -211,7 +211,7 @@ impl App {
         let mut items = Vec::new();
 
         if self.search_input.value().is_empty() {
-            for (file, rows) in self.groups.iter().rev() {
+            for (file, rows) in self.groups.iter() {
                 let group = &file.group;
                 let file_name = &file.file_name;
                 let name = group.name.as_ref().unwrap_or(file_name);
