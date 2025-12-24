@@ -1,7 +1,10 @@
 use crate::{
+    command::Command,
     config::{GlobalConfig, OnConflict},
     dir::git_root,
     ds_file::{DsFile, Match},
+    group::Group,
+    help::HelpRow,
 };
 use anyhow::Result;
 
@@ -77,5 +80,22 @@ impl DoSomething {
             None => Err(anyhow::anyhow!("No matching command found")),
             Some(m) => Ok(m),
         }
+    }
+
+    pub fn command_from_match(&mut self, match_: &Match) -> Result<(&Command, Vec<&Group>)> {
+        let file = self.load_file(&match_.file_path)?;
+        file.command_from_keys(&match_.keys)
+    }
+
+    pub fn help_rows_for_match(&mut self, match_: &Match) -> Result<Vec<HelpRow>> {
+        let current_dir = self.current_dir.clone();
+        let git_root = self.git_root.clone();
+        let file = self.load_file(&match_.file_path)?;
+
+        file.get_help_rows_for_match(match_, &current_dir, git_root.as_ref())
+    }
+
+    pub fn file_from_match(&mut self, match_: &Match) -> Result<&DsFile> {
+        self.load_file(&match_.file_path)
     }
 }

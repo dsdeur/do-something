@@ -1,6 +1,7 @@
 use crate::{
     config::{self},
     dir::git_root,
+    do_something::DoSomething,
     ds_file::{DsFile, Match},
     env::{get_env_by_key, match_env},
     help::{HelpRow, print_lines},
@@ -70,25 +71,13 @@ pub fn run_help_row(row: Option<HelpRow>) -> Result<()> {
     Ok(())
 }
 
-pub fn run_matches(
-    matches: Vec<(DsFile, Vec<Match>)>,
-    args_str: &[&str],
-    current_dir: impl AsRef<Path>,
-    git_root: Option<impl AsRef<Path>>,
-) -> Result<()> {
-    // Get the first match, as we reverse iterate
-    let (file, matches) = matches
-        .first()
-        .ok_or_else(|| anyhow::anyhow!("No matching command found for: {}", args_str.join(" ")))?;
+pub fn run_match(ds: &mut DoSomething, args_str: &[&str]) -> Result<()> {
+    // Get the runner based on the provided arguments
+    let match_ = ds.match_command(&args_str)?;
+    let (command, parents) = ds.command_from_match(&match_)?;
 
-    // Get the runner for the last match
-    let last_match = matches
-        .last()
-        .ok_or_else(|| anyhow::anyhow!("No matching command found in file"))?;
-
-    let (command, parents) = file.command_from_keys(&last_match.keys)?;
     let (env, default_env) = command.get_envs(&parents);
-    let mut extra_args = &args_str[last_match.score..];
+    let mut extra_args = &args_str[match_.score..];
 
     let env = if let Some((matched_env, args)) = match_env(env, default_env, extra_args)? {
         extra_args = args;
@@ -107,9 +96,8 @@ pub fn run_matches(
             std::process::exit(status.code().unwrap_or(1));
         }
         Runner::Help => {
-            let lines =
-                file.get_help_rows_for_match(last_match, &current_dir, git_root.as_ref())?;
-
+            let lines = ds.help_rows_for_match(&match_)?;
+            let file = ds.file_from_match(&match_)?;
             let max_size = lines.iter().map(HelpRow::len).max().unwrap_or(0);
             let row = run_tui(vec![(file.clone(), lines)], max_size);
             run_help_row(row.unwrap())?;
@@ -161,6 +149,8 @@ pub fn render_help(
 
 /// Run the CLI application
 pub fn run() -> Result<()> {
+    let mut ds = DoSomething::new()?;
+
     // Get the command line arguments, skipping the first one (the program name)
     let args: Vec<String> = env::args().skip(1).collect();
     let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
@@ -179,7 +169,5 @@ pub fn run() -> Result<()> {
         std::process::exit(0);
     }
 
-    // Get the runner based on the provided arguments
-    let matches = match_command(&config, &paths, &args_str, &current_dir, git_root.as_ref())?;
-    run_matches(matches, &args_str, &current_dir, git_root.as_ref())
+    run_match(&mut ds, &args_str)
 }
