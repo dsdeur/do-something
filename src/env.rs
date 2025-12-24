@@ -92,15 +92,6 @@ impl Env {
     }
 }
 
-/// Configuration for environments
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct EnvConfig {
-    /// A map of environment names to their definitions
-    pub envs: BTreeMap<String, Env>,
-    /// An optional default environment name
-    pub default: Option<String>,
-}
-
 pub fn match_env<'a>(
     envs: BTreeMap<&'a String, &'a Env>,
     default_env: Option<&'a str>,

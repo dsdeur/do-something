@@ -37,7 +37,7 @@ impl HelpRow {
     }
 
     /// Get the group keys as a space-separated string
-    pub fn get_group_keys(&self) -> String {
+    pub fn group_keys(&self) -> String {
         let res: Vec<_> = self
             .alias_keys
             .iter()
@@ -49,19 +49,11 @@ impl HelpRow {
     }
 
     /// Get the main key for the command, so the first key in the last alias
-    pub fn get_key(&self) -> String {
+    pub fn key(&self) -> String {
         self.alias_keys
             .last()
             .and_then(|keys| keys.first().cloned())
             .unwrap_or_default()
-    }
-
-    pub fn get_key_and_env(&self) -> Vec<String> {
-        let mut res = self.key.iter().cloned().collect::<Vec<String>>();
-        if let Some(env) = &self.env {
-            res.push(env.clone());
-        }
-        res
     }
 
     /// Get the length of the row, to calculate how much space it will take in the output
@@ -72,18 +64,14 @@ impl HelpRow {
             None => 0,
         };
 
-        let mut len = self.prefix.len() + 1 + self.get_key().len() + env_size;
-        let group_keys = self.get_group_keys();
+        let mut len = self.prefix.len() + 1 + self.key().len() + env_size;
+        let group_keys = self.group_keys();
 
         if !group_keys.is_empty() {
             len += group_keys.len() + 1; // +1 for the space
         }
 
         len
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.key.is_empty() && self.command.is_empty()
     }
 
     /// Get the formatted aliases for the command
@@ -104,14 +92,14 @@ impl HelpRow {
     }
 
     pub fn to_string(&self, max_size: usize) -> String {
-        let group_keys = self.get_group_keys();
+        let group_keys = self.group_keys();
         let groups = if group_keys.is_empty() {
             group_keys
         } else {
             format!("{} ", group_keys)
         };
 
-        let key = self.get_key();
+        let key = self.key();
         let prefix = self.prefix;
 
         let env = match &self.env {
@@ -131,9 +119,9 @@ impl HelpRow {
     }
 
     pub fn to_list_line(&self, max_size: usize) -> Vec<Line<'static>> {
-        let group_keys = self.get_group_keys();
+        let group_keys = self.group_keys();
 
-        let key = self.get_key();
+        let key = self.key();
 
         let mut spans = vec![
             Span::styled(self.prefix, Style::default().fg(Color::Gray)),

@@ -20,7 +20,7 @@ pub fn run_help_row(row: Option<HelpRow>) -> Result<()> {
     if let Some(row) = row {
         let file = DsFile::from_file(&row.file_path)?;
         let (command, parents) = file.command_from_keys(&row.key)?;
-        let (envs, default_env) = command.get_envs(&parents);
+        let (envs, default_env) = command.resolved_envs(&parents);
         let env = get_env_by_key(envs, row.env, default_env);
         let runner = Runner::from_command(command, &parents, &[], env)?;
 
@@ -39,7 +39,7 @@ pub fn run_match(ds: &mut DoSomething, args_str: &[&str]) -> Result<()> {
     let match_ = ds.match_command(&args_str)?;
     let (command, parents) = ds.command_from_match(&match_)?;
 
-    let (env, default_env) = command.get_envs(&parents);
+    let (env, default_env) = command.resolved_envs(&parents);
     let mut extra_args = &args_str[match_.score..];
 
     let env = if let Some((matched_env, args)) = match_env(env, default_env, extra_args)? {
@@ -80,7 +80,7 @@ pub fn render_help(
 
     for path in paths.iter() {
         let file = DsFile::from_file(path)?;
-        let rows = file.get_help_rows(&current_dir, git_root.as_ref())?;
+        let rows = file.help_rows(&current_dir, git_root.as_ref())?;
 
         // If the group has no commands, we skip it
         if rows.is_empty() {
@@ -120,7 +120,7 @@ pub fn run() -> Result<()> {
 
     // Load the global configuration
     let config = config::GlobalConfig::load()?;
-    let paths = config.get_command_paths()?;
+    let paths = config.file_paths()?;
 
     // For scoping, get the current directory and git root
     let current_dir = std::env::current_dir()?;

@@ -69,7 +69,7 @@ impl Command {
     /// Get the root path and configuration for the command
     /// - Returns a tuple of the root configuration and the resolved path
     /// - Looks at the command first, then at the parent groups
-    pub fn get_command_root_path<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
+    pub fn resolved_root<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
         let command_root = match self {
             Command::Config(cmd) => cmd.root.as_ref(),
             Command::Group(group) => group.root.as_ref(),
@@ -86,11 +86,11 @@ impl Command {
 
     /// Get the root configuration for the command or group,
     ///
-    /// IMPORTANT!: Unlike `get_command_root_path`, this does not resolve the parents
+    /// IMPORTANT!: Unlike `resolved_root`, this does not resolve the parents
     /// this means it can only be used when walking the tree, and handling each group.
     ///
     /// Resolves the root path to an absolute path (including tilde expansion).
-    fn get_root(&self) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
+    fn own_root(&self) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
         let item_root = match self {
             Command::Config(cmd) => cmd.root.clone(),
             Command::Group(group) => group.root.clone(),
@@ -106,7 +106,7 @@ impl Command {
     }
 
     /// Get the environment configuration for the command or group
-    fn get_env(&self) -> Option<&BTreeMap<String, Env>> {
+    fn env(&self) -> Option<&BTreeMap<String, Env>> {
         match self {
             Command::Config(cmd) => cmd.envs.as_ref(),
             Command::Group(group) => group.envs.as_ref(),
@@ -115,7 +115,7 @@ impl Command {
     }
 
     /// Get the environment configuration for the command or group
-    pub fn get_default_env(&self) -> Option<&String> {
+    pub fn default_env(&self) -> Option<&String> {
         match self {
             Command::Config(cmd) => cmd.default_env.as_ref(),
             Command::Group(group) => group.default_env.as_ref(),
@@ -124,7 +124,7 @@ impl Command {
     }
 
     /// Get the merged environment configurations from the command and its parents
-    pub fn get_envs<'a>(
+    pub fn resolved_envs<'a>(
         &'a self,
         parents: &[&'a Group],
     ) -> (BTreeMap<&'a String, &'a Env>, Option<&'a str>) {
@@ -139,13 +139,13 @@ impl Command {
             parent.envs.as_ref()
         });
 
-        for envs in parent_envs.chain(self.get_env().into_iter()) {
+        for envs in parent_envs.chain(self.env().into_iter()) {
             for (key, env) in envs.iter() {
                 merged.entry(key).or_insert(env);
             }
         }
 
-        if let Some(env) = self.get_default_env() {
+        if let Some(env) = self.default_env() {
             default_env = Some(env);
         }
 
@@ -161,7 +161,7 @@ impl Command {
         current_dir: impl AsRef<Path>,
         git_root: Option<impl AsRef<Path>>,
     ) -> Result<bool> {
-        let root = self.get_root()?;
+        let root = self.own_root()?;
 
         if let (Some(root_config), Some(target_path)) = root {
             match root_config.scope {
@@ -186,7 +186,11 @@ impl Command {
     /// - This function collects the keys from the command and its parent groups,
     /// - Resolves aliases if they exist
     /// - Returns a vector of vectors, where each represents one level of aliases
-    pub fn get_keys<'a>(&'a self, keys: &[&'a str], parents: &[&'a Group]) -> Vec<Vec<&'a str>> {
+    pub fn resolved_aliases<'a>(
+        &'a self,
+        keys: &[&'a str],
+        parents: &[&'a Group],
+    ) -> Vec<Vec<&'a str>> {
         let mut parent_keys = Vec::with_capacity(parents.len() + 1);
 
         // Collect all parent keys
@@ -264,7 +268,7 @@ impl Command {
     }
 
     /// Get the command string for the command definition
-    pub fn get_command(&self) -> Option<&str> {
+    pub fn command(&self) -> Option<&str> {
         // Resolve a group with a default, to it's default command
         let command = self.resolve_default(&mut None);
 

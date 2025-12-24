@@ -39,7 +39,7 @@ pub struct DoSomething {
 impl DoSomething {
     pub fn new() -> Result<Self> {
         let config = GlobalConfig::load()?;
-        let paths = config.get_command_paths()?;
+        let paths = config.file_paths()?;
 
         Ok(DoSomething {
             ds_files: DsFiles::default(),
@@ -56,8 +56,7 @@ impl DoSomething {
 
         for path in &self.paths {
             let file = self.ds_files.load_file(path)?;
-            let file_matches =
-                file.get_matches(target, &self.current_dir, self.git_root.as_ref())?;
+            let file_matches = file.matches(target, &self.current_dir, self.git_root.as_ref())?;
 
             // Add matches, last one wins
             matches.extend(file_matches.into_iter().rev());
@@ -89,7 +88,7 @@ impl DoSomething {
 
     pub fn help_rows_for_match(&mut self, match_: &Match) -> Result<Vec<HelpRow>> {
         let file = self.ds_files.load_file(&match_.file_path)?;
-        file.get_help_rows_for_match(match_, &self.current_dir, self.git_root.as_ref())
+        file.help_rows_for_match(match_, &self.current_dir, self.git_root.as_ref())
     }
 
     pub fn file_from_match(&mut self, match_: &Match) -> Result<&DsFile> {

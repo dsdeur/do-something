@@ -149,11 +149,7 @@ impl DsFile {
     }
 
     /// Get the commands that match the provided matches
-    /// - `matches` is a vector of strings representing the command path
-    /// - `include_nested` determines if nested commands should be included in the match
-    /// - Returns a vector of tuples containing the match score, command keys, command definition,
-    ///   and parent groups for each matching command
-    pub fn get_matches(
+    pub fn matches(
         &self,
         target: &[&str],
         current_dir: impl AsRef<Path>,
@@ -178,7 +174,7 @@ impl DsFile {
             }
 
             // Calculate the match score
-            let command_keys = cmd.get_keys(keys, parents);
+            let command_keys = cmd.resolved_aliases(keys, parents);
             let m = Match::from_command(self.path.clone(), keys, &command_keys, target);
 
             if let Some(m) = m {
@@ -210,7 +206,7 @@ impl DsFile {
     }
 
     /// Get the help rows for a match in the command file
-    pub fn get_help_rows_for_match(
+    pub fn help_rows_for_match(
         &self,
         match_: &Match,
         current_dir: impl AsRef<Path>,
@@ -218,7 +214,7 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys: Vec<&str> = match_.keys.iter().map(|s| s.as_str()).collect();
-        let (envs, default_env) = command.get_envs(&parents);
+        let (envs, default_env) = command.resolved_envs(&parents);
         let mut envs = envs
             .keys()
             .map(|f| {
@@ -282,7 +278,7 @@ impl DsFile {
     }
 
     /// Get the help rows for the full command file
-    pub fn get_help_rows(
+    pub fn help_rows(
         &self,
         current_dir: impl AsRef<Path>,
         git_root: Option<impl AsRef<Path>>,

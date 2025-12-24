@@ -212,14 +212,14 @@ impl Group {
                 Ok(true) => {}
             }
 
-            if let Some(command) = cmd.get_command() {
+            if let Some(command) = cmd.command() {
                 let alias_keys = cmd
-                    .get_keys(keys, parents)
+                    .resolved_aliases(keys, parents)
                     .into_iter()
                     .map(|inner| inner.into_iter().map(|s| s.to_string()).collect())
                     .collect::<Vec<Vec<String>>>();
 
-                let (envs, default_env) = cmd.get_envs(parents);
+                let (envs, default_env) = cmd.resolved_envs(parents);
                 let mut envs = envs
                     .keys()
                     .map(|f| {

@@ -74,7 +74,7 @@ impl GlobalConfig {
     /// 2. Files/glob patterns specified in the config under `ds_files`
     /// 3. ds.json in the Git root directory
     /// 4. ds.json in the current directory
-    pub fn get_command_paths(&self) -> Result<Vec<std::path::PathBuf>> {
+    pub fn file_paths(&self) -> Result<Vec<std::path::PathBuf>> {
         let mut paths = Vec::new();
 
         // Get the config location
