@@ -2,7 +2,7 @@ use crate::{
     config::{self},
     dir::git_root,
     do_something::DoSomething,
-    ds_file::{DsFile, Match},
+    ds_file::DsFile,
     env::{get_env_by_key, match_env},
     help::{HelpRow, print_lines},
     runner::Runner,
@@ -15,43 +15,6 @@ use std::{
     env,
     path::{Path, PathBuf},
 };
-
-/// Find and match a command in the provided paths
-pub fn match_command(
-    config: &config::GlobalConfig,
-    paths: &[PathBuf],
-    target: &[&str],
-    current_dir: impl AsRef<Path>,
-    git_root: Option<impl AsRef<Path>>,
-) -> Result<Vec<(DsFile, Vec<Match>)>> {
-    // Collect the matches
-    let mut files = Vec::new();
-    let mut match_count = 0;
-
-    for path in paths.iter() {
-        let file = DsFile::from_file(path)?;
-        let matches = file.get_matches(target, &current_dir, git_root.as_ref())?;
-
-        if !matches.is_empty() {
-            match_count += matches.len();
-            files.push((file, matches));
-        }
-
-        match config.on_conflict {
-            // Since we are reverse iterating, we can break on the first match
-            config::OnConflict::Override if match_count > 0 => break,
-            // If we have multiple matches, or previous files with matches, and the config is set to error,
-            // we return an error
-            config::OnConflict::Error if match_count > 1 => {
-                return Err(anyhow::anyhow!("Conflict detected in group"));
-            }
-            // Otherwise we just continue to collect matches
-            _ => {}
-        }
-    }
-
-    Ok(files)
-}
 
 pub fn run_help_row(row: Option<HelpRow>) -> Result<()> {
     if let Some(row) = row {
