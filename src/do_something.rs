@@ -10,8 +10,26 @@ use anyhow::Result;
 
 use std::{collections::BTreeMap, path::PathBuf};
 
+#[derive(Default)]
+pub struct DsFiles {
+    pub files: BTreeMap<PathBuf, DsFile>,
+}
+
+impl DsFiles {
+    /// Load a ds_file by path
+    /// If already loaded, returns the existing one
+    fn load_file(&mut self, path: &PathBuf) -> Result<&DsFile> {
+        if !self.files.contains_key(path) {
+            let ds_file = DsFile::from_file(path)?;
+            self.files.insert(path.clone(), ds_file);
+        }
+
+        Ok(self.files.get(path).unwrap())
+    }
+}
+
 pub struct DoSomething {
-    pub ds_files: BTreeMap<PathBuf, DsFile>,
+    pub ds_files: DsFiles,
     pub config: GlobalConfig,
     pub paths: Vec<PathBuf>,
     pub current_dir: PathBuf,
@@ -24,7 +42,7 @@ impl DoSomething {
         let paths = config.get_command_paths()?;
 
         Ok(DoSomething {
-            ds_files: BTreeMap::new(),
+            ds_files: DsFiles::default(),
             config,
             paths,
             current_dir: std::env::current_dir()?,
@@ -32,37 +50,19 @@ impl DoSomething {
         })
     }
 
-    /// Load a ds_file by path
-    /// If already loaded, returns the existing one
-    fn load_file(&mut self, path: &PathBuf) -> Result<&DsFile> {
-        if !self.ds_files.contains_key(path) {
-            let ds_file = DsFile::from_file(path)?;
-            self.ds_files.insert(path.clone(), ds_file);
-        }
-
-        Ok(self.ds_files.get(path).unwrap())
-    }
-
     /// Find and match a command in the provided paths
     pub fn match_command(&mut self, target: &[&str]) -> Result<Match> {
         let mut matches = Vec::new();
 
-        // Clone/copy these values to avoid borrowing self during mutation
-        let current_dir = self.current_dir.clone();
-        let git_root = self.git_root.clone();
-        let on_conflict = self.config.on_conflict.clone();
-
-        // Collect paths first to avoid borrowing self.paths during mutation
-        let paths: Vec<PathBuf> = self.paths.clone();
-
-        for path in &paths {
-            let file = self.load_file(path)?;
-            let file_matches = file.get_matches(target, &current_dir, git_root.as_ref())?;
+        for path in &self.paths {
+            let file = self.ds_files.load_file(path)?;
+            let file_matches =
+                file.get_matches(target, &self.current_dir, self.git_root.as_ref())?;
 
             // Add matches, last one wins
             matches.extend(file_matches.into_iter().rev());
 
-            match &on_conflict {
+            match &self.config.on_conflict {
                 // Since we are reverse iterating, we can break on the first match
                 OnConflict::Override if matches.len() > 0 => break,
                 // If we have multiple matches, or previous files with matches, and the config is set to error,
@@ -83,19 +83,16 @@ impl DoSomething {
     }
 
     pub fn command_from_match(&mut self, match_: &Match) -> Result<(&Command, Vec<&Group>)> {
-        let file = self.load_file(&match_.file_path)?;
+        let file = self.ds_files.load_file(&match_.file_path)?;
         file.command_from_keys(&match_.keys)
     }
 
     pub fn help_rows_for_match(&mut self, match_: &Match) -> Result<Vec<HelpRow>> {
-        let current_dir = self.current_dir.clone();
-        let git_root = self.git_root.clone();
-        let file = self.load_file(&match_.file_path)?;
-
-        file.get_help_rows_for_match(match_, &current_dir, git_root.as_ref())
+        let file = self.ds_files.load_file(&match_.file_path)?;
+        file.get_help_rows_for_match(match_, &self.current_dir, self.git_root.as_ref())
     }
 
     pub fn file_from_match(&mut self, match_: &Match) -> Result<&DsFile> {
-        self.load_file(&match_.file_path)
+        self.ds_files.load_file(&match_.file_path)
     }
 }
