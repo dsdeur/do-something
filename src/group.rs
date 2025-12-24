@@ -65,6 +65,68 @@ pub struct Group {
 }
 
 impl Group {
+    pub fn walk_tree_iter<'a>(
+        &'a self,
+        on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
+    ) {
+        let mut keys: Vec<&str> = Vec::new();
+        let mut parents = vec![self];
+        let mut stack = Vec::new();
+
+        enum StackItem<'a> {
+            Command(&'a str, &'a Command),
+            ExitGroup,
+        }
+
+        // Start with the root group, LIFO
+        // We don't push a stop item, as we just end when the stack is empty
+        for (key, cmd) in self.commands.iter().rev() {
+            stack.push(StackItem::Command(key, cmd));
+        }
+
+        while let Some(item) = stack.pop() {
+            match item {
+                StackItem::Command(key, command) => {
+                    keys.push(key);
+
+                    match on_command(keys.as_slice(), command, &parents) {
+                        Walk::Continue => (),
+                        // Skip the current command, meaning don't process the group
+                        Walk::Skip => {
+                            keys.pop();
+                            continue;
+                        }
+                        // Stop the walk, meaning don't process any more commands
+                        Walk::Stop => {
+                            keys.pop();
+                            break;
+                        }
+                    };
+
+                    if let Command::Group(group) = command {
+                        // Add the group to the parents
+                        parents.push(group);
+
+                        // First push a pop parent item to pop the parent when done
+                        stack.push(StackItem::ExitGroup);
+
+                        // Then push all commands in reverse order
+                        for (key, cmd) in group.commands.iter().rev() {
+                            stack.push(StackItem::Command(key, cmd));
+                        }
+                    } else {
+                        // Normal item, just pop the key
+                        keys.pop();
+                    }
+                }
+                StackItem::ExitGroup => {
+                    parents.pop();
+                    keys.pop();
+                }
+            }
+        }
+    }
+
     /// Walk the group commands recursively, calling `on_command` for each command.
     #[allow(clippy::type_complexity)]
     pub fn walk_tree<'a>(
@@ -120,9 +182,7 @@ impl Group {
         &'a self,
         on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
     ) {
-        let mut keys = Vec::new();
-        let mut parents = Vec::new();
-        self.walk_tree(&mut keys, &mut parents, on_command);
+        self.walk_tree_iter(on_command);
     }
 
     /// Get the help rows for the group and its subgroups
