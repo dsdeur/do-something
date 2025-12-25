@@ -268,7 +268,7 @@ You have three scoping options:
   },
   "root": {
     "path": "~/path/to/git/root",
-    "scope": "GitRoot
+    "scope": "GitRoot"
   }
 }
 ```
