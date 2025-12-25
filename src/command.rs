@@ -138,7 +138,7 @@ impl Command {
             None
         };
 
-        Runner::from_command(self, &parents, extra_args, env)
+        Runner::from_command(self, parents, extra_args, env)
     }
 
     /// Get the merged environment configurations from the command and its parents

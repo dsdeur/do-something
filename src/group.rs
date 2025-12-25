@@ -95,7 +95,7 @@ impl Group {
                 StackItem::Command(key, command) => {
                     keys.push(key);
 
-                    match on_command(keys.as_slice(), command, &parents) {
+                    match on_command(keys.as_slice(), command, parents) {
                         Walk::Continue => (),
                         // Skip the current command, meaning don't process the group
                         Walk::Skip => {

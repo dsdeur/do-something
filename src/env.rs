@@ -148,5 +148,5 @@ pub fn get_env_by_key<'a>(
         env = envs.get(&default.to_string());
     }
 
-    env.map(|f| *f)
+    env.copied()
 }

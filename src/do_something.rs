@@ -69,7 +69,7 @@ impl DoSomething {
 
             match &self.config.on_conflict {
                 // Since we are reverse iterating, we can break on the first match
-                OnConflict::Override if matches.len() > 0 => break,
+                OnConflict::Override if !matches.is_empty() => break,
                 // If we have multiple matches, or previous files with matches, and the config is set to error,
                 // we return an error
                 OnConflict::Error if matches.len() > 1 => {
@@ -183,7 +183,7 @@ impl DoSomething {
 
     pub fn run_match(&mut self, args_str: &[&str]) -> Result<()> {
         // Get the runner based on the provided arguments
-        let match_ = self.match_command(&args_str)?;
+        let match_ = self.match_command(args_str)?;
         let (command, parents) = self.command_from_match(&match_)?;
         let runner = command.runner(&parents, &args_str[match_.score..])?;
 

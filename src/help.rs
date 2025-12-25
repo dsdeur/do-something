@@ -72,6 +72,10 @@ impl HelpRow {
         len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Get the formatted aliases for the command
     pub fn aliases(&self) -> Option<String> {
         if !self.alias_keys.iter().any(|keys| keys.len() > 1) {

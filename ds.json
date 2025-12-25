@@ -8,23 +8,9 @@
       "aliases": ["r"],
       "command": "cargo run --"
     },
-    "test": {
-      "default_env": "dev",
-      "commands": {
-        "test": "echo $HELLO"
-      },
-      "envs": {
-        "dev": {
-          "vars": {
-            "HELLO": "Hello, Development!"
-          }
-        },
-        "prod": {
-          "vars": {
-            "HELLO": "Hello, Production!"
-          }
-        }
-      }
+    "clippy": {
+      "aliases": ["c"],
+      "command": "cargo clippy"
     }
   }
 }
