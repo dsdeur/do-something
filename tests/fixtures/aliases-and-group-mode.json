@@ -1,0 +1,29 @@
+{
+  "commands": {
+    "group1": {
+      "aliases": ["g1", "group-one"],
+      "commands": {
+        "group1-cmd1": {
+          "aliases": ["g1c1", "group-one-cmd-one"],
+          "command": "echo 'Group 1 Command 1'"
+        },
+        "group2": {
+          "aliases": ["g2"],
+          "commands": {
+            "group2-cmd1": {
+              "aliases": ["g2c1"],
+              "command": "echo 'Group 2 Command 1'"
+            },
+            "group3": {
+              "aliases": ["g3"],
+              "commands": {
+                "group3-cmd1": "echo 'Group 3 Command 1'"
+              }
+            }
+          },
+          "mode": "Flattened"
+        }
+      }
+    }
+  }
+}

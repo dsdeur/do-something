@@ -72,17 +72,8 @@ impl Match {
 }
 
 impl DsFile {
-    /// Load a group configuration from a file.
-    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
-        if !path.as_ref().exists() {
-            return Err(anyhow::anyhow!(
-                "File not found: {}",
-                path.as_ref().display()
-            ));
-        }
-
-        let content = fs::read_to_string(&path)?;
-        let mut group: Group = serde_json::from_str(&content)?;
+    pub fn from_json(json: String, path: impl AsRef<Path>) -> Result<Self> {
+        let mut group: Group = serde_json::from_str(&json)?;
         let file_name = path
             .as_ref()
             .file_name()
@@ -105,6 +96,18 @@ impl DsFile {
             path_string,
             path: path.as_ref().to_path_buf(),
         })
+    }
+    /// Load a group configuration from a file.
+    pub fn from_file(path: impl AsRef<Path>) -> Result<Self> {
+        if !path.as_ref().exists() {
+            return Err(anyhow::anyhow!(
+                "File not found: {}",
+                path.as_ref().display()
+            ));
+        }
+
+        let content = fs::read_to_string(&path)?;
+        Self::from_json(content, path)
     }
 
     /// Get a command (and its parents) from the tree, based on the provided keys
@@ -132,6 +135,12 @@ impl DsFile {
             // Resolve the default command from groups
             // Make sure we also collect the parents correctly, if we are further nesting into defaults
             let command = command.resolve_default(&mut Some(&mut parents));
+
+            // If the command is a group, we need to remove it from the parents
+            // Otherwise we would have the group as command and as parent
+            if let Command::Group(_) = command {
+                parents.pop();
+            }
 
             Ok((command, parents))
         } else {

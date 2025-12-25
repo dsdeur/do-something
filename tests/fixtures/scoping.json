@@ -1,0 +1,31 @@
+{
+  "commands": {
+    "global-group": {
+      "commands": {
+        "global-cmd": "echo 'Global'"
+      },
+      "root": {
+        "path": "/nested/folder",
+        "scope": "Global"
+      }
+    },
+    "git-root-group": {
+      "commands": {
+        "git-root-cmd": "echo 'GitRoot'"
+      },
+      "root": {
+        "path": "/nested/folder",
+        "scope": "GitRoot"
+      }
+    },
+    "exact-group": {
+      "commands": {
+        "exact-cmd": "echo 'Exact'"
+      },
+      "root": {
+        "path": "/nested/folder",
+        "scope": "Exact"
+      }
+    }
+  }
+}

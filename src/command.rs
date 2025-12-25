@@ -203,6 +203,7 @@ impl Command {
     /// - This function collects the keys from the command and its parent groups,
     /// - Resolves aliases if they exist
     /// - Returns a vector of vectors, where each represents one level of aliases
+    /// - Ignores the first parent group, as it is the root group and has no key
     pub fn resolve_aliases<'a>(
         &'a self,
         keys: &[&'a str],
@@ -212,6 +213,7 @@ impl Command {
 
         // Collect all parent keys
         for (i, group) in parents.iter().enumerate() {
+            // Ignore the root (file) group, as it has no key
             if i == 0 {
                 continue;
             }
@@ -221,6 +223,7 @@ impl Command {
             match group.mode {
                 // Only collect group aliases if the group is namespaced (default)
                 Some(GroupMode::Namespaced) | None => {
+                    println!("Command is a namespaced with aliases: {:?}", group.aliases);
                     if let Some(aliases) = &group.aliases {
                         let mut keys = Vec::with_capacity(1 + aliases.len());
 
@@ -238,6 +241,7 @@ impl Command {
                     }
                 }
                 Some(GroupMode::Flattened) => {
+                    println!("Command is a flattened with aliases: {:?}", group.aliases);
                     continue;
                 }
             }
@@ -266,6 +270,9 @@ impl Command {
             }
         }
 
+        println!("Parent aliases: {:?}", parent_keys);
+        println!("Command aliases: {:?}", command_keys);
+
         // Combine the parent keys with the command keys
         parent_keys.push(command_keys);
         parent_keys
@@ -293,6 +300,198 @@ impl Command {
             Command::Inline(cmd) => Some(cmd),
             Command::Config(cmd) => Some(&cmd.command),
             Command::Group(_) => None,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::ds_file::DsFile;
+
+    use super::*;
+
+    #[test]
+    fn is_in_scope() {
+        struct Case {
+            name: &'static str,
+            command: Command,
+            current_dir: &'static str,
+            git_root: Option<&'static str>,
+            is_in_scope: bool,
+        }
+
+        let json = include_str!("../tests/fixtures/scoping.json");
+        let group: Group = serde_json::from_str(json).unwrap();
+
+        let cases = [
+            Case {
+                name: "Global command, outside of root path",
+                command: group.commands.get("global-group").cloned().unwrap(),
+                current_dir: "/some/dir",
+                git_root: None,
+                is_in_scope: true,
+            },
+            Case {
+                name: "Global command, exact root path",
+                command: group.commands.get("global-group").cloned().unwrap(),
+                current_dir: "/nested/folder",
+                git_root: None,
+                is_in_scope: true,
+            },
+            Case {
+                name: "Git root command, outside of git root",
+                command: group.commands.get("git-root-group").cloned().unwrap(),
+                current_dir: "/not/git/root/test",
+                git_root: Some("/not/git/root"),
+                is_in_scope: false,
+            },
+            Case {
+                name: "Git root command, no git root",
+                command: group.commands.get("git-root-group").cloned().unwrap(),
+                current_dir: "/not/git/root",
+                git_root: None,
+                is_in_scope: false,
+            },
+            Case {
+                name: "Git root command, exact git root",
+                command: group.commands.get("git-root-group").cloned().unwrap(),
+                current_dir: "/nested/folder",
+                git_root: Some("/nested/folder"),
+                is_in_scope: true,
+            },
+            Case {
+                name: "Git root command, nested in git root",
+                command: group.commands.get("git-root-group").cloned().unwrap(),
+                current_dir: "/nested/folder/nested/folder",
+                git_root: Some("/nested/folder"),
+                is_in_scope: true,
+            },
+            Case {
+                name: "Exact root command, not matching",
+                command: group.commands.get("exact-group").cloned().unwrap(),
+                current_dir: "/nested/folder/nested/folder",
+                git_root: Some("/nested/folder"),
+                is_in_scope: false,
+            },
+            Case {
+                name: "Exact root command, matching",
+                command: group.commands.get("exact-group").cloned().unwrap(),
+                current_dir: "/nested/folder",
+                git_root: Some("/nested/folder"),
+                is_in_scope: true,
+            },
+        ];
+
+        for case in cases {
+            let result = case
+                .command
+                .is_in_scope(case.current_dir, case.git_root)
+                .unwrap();
+
+            assert_eq!(result, case.is_in_scope, "{}", case.name);
+        }
+    }
+
+    #[test]
+    fn aliases() {
+        let file = include_str!("../tests/fixtures/aliases-and-group-mode.json");
+        let ds_file = DsFile::from_json(
+            file.to_string(),
+            "../tests/fixtures/aliases-and-group-mode.json",
+        )
+        .unwrap();
+
+        struct Case {
+            name: &'static str,
+            command: Command,
+            keys: Vec<String>,
+            parents: Vec<Group>,
+            expected_aliases: Vec<Vec<&'static str>>,
+        }
+
+        fn create_case(
+            name: &'static str,
+            keys: &[String],
+            ds_file: &DsFile,
+            expected_aliases: Vec<Vec<&'static str>>,
+        ) -> Case {
+            let (command, parents) = ds_file.command_from_keys(&keys).unwrap();
+
+            let parents_with_root = vec![ds_file.group.clone()]
+                .into_iter()
+                .chain(parents.into_iter().cloned().collect::<Vec<Group>>())
+                .collect::<Vec<Group>>();
+
+            for p in &parents_with_root {
+                println!("Parent group: {:?}", p.aliases);
+            }
+
+            Case {
+                name,
+                command: command.clone(),
+                keys: keys.to_vec(),
+                parents: parents_with_root,
+                expected_aliases,
+            }
+        }
+
+        let cases = vec![
+            create_case(
+                "Top level group with aliases",
+                &vec!["group1".to_string()],
+                &ds_file,
+                vec![vec!["group1", "g1", "group-one"]],
+            ),
+            create_case(
+                "Nested command, with group and command aliases",
+                &vec!["group1".to_string(), "group1-cmd1".to_string()],
+                &ds_file,
+                vec![
+                    vec!["group1", "g1", "group-one"],
+                    vec!["group1-cmd1", "g1c1", "group-one-cmd-one"],
+                ],
+            ),
+            create_case(
+                "Flattened group command",
+                &vec![
+                    "group1".to_string(),
+                    "group2".to_string(),
+                    "group2-cmd1".to_string(),
+                ],
+                &ds_file,
+                vec![
+                    vec!["group1", "g1", "group-one"],
+                    vec!["group2-cmd1", "g2c1"],
+                ],
+            ),
+            create_case(
+                "Deeply nested, no command alias",
+                &vec![
+                    "group1".to_string(),
+                    "group2".to_string(),
+                    "group3".to_string(),
+                    "group3-cmd1".to_string(),
+                ],
+                &ds_file,
+                vec![
+                    vec!["group1", "g1", "group-one"],
+                    vec!["group3", "g3"],
+                    vec!["group3-cmd1"],
+                ],
+            ),
+        ];
+
+        for case in cases {
+            let aliases = case.command.resolve_aliases(
+                case.keys
+                    .iter()
+                    .map(|k| k.as_str())
+                    .collect::<Vec<&str>>()
+                    .as_slice(),
+                &case.parents.iter().collect::<Vec<&Group>>(),
+            );
+
+            assert_eq!(aliases, case.expected_aliases, "{}", case.name);
         }
     }
 }
