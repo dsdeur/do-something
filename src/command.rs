@@ -223,7 +223,6 @@ impl Command {
             match group.mode {
                 // Only collect group aliases if the group is namespaced (default)
                 Some(GroupMode::Namespaced) | None => {
-                    println!("Command is a namespaced with aliases: {:?}", group.aliases);
                     if let Some(aliases) = &group.aliases {
                         let mut keys = Vec::with_capacity(1 + aliases.len());
 
@@ -241,7 +240,6 @@ impl Command {
                     }
                 }
                 Some(GroupMode::Flattened) => {
-                    println!("Command is a flattened with aliases: {:?}", group.aliases);
                     continue;
                 }
             }
@@ -269,9 +267,6 @@ impl Command {
                 }
             }
         }
-
-        println!("Parent aliases: {:?}", parent_keys);
-        println!("Command aliases: {:?}", command_keys);
 
         // Combine the parent keys with the command keys
         parent_keys.push(command_keys);
@@ -500,10 +495,6 @@ mod tests {
                 .into_iter()
                 .chain(parents.into_iter().cloned().collect::<Vec<Group>>())
                 .collect::<Vec<Group>>();
-
-            for p in &parents_with_root {
-                println!("Parent group: {:?}", p.aliases);
-            }
 
             Case {
                 name,
