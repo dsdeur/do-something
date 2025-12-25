@@ -1,5 +1,4 @@
-use crate::ds_file::DsFile;
-use crate::help::HelpRow;
+use crate::help::{HelpGroup, HelpRow};
 use color_eyre::{Result, eyre::Context};
 use nucleo::Nucleo;
 use ratatui::prelude::*;
@@ -18,7 +17,7 @@ use tui_input::backend::crossterm::EventHandler;
 
 struct App {
     search_input: Input,
-    groups: Vec<(DsFile, Vec<HelpRow>)>,
+    groups: Vec<HelpGroup>,
     cursor_position: (u16, u16),
     list_state: ListState,
     nucleo: Nucleo<HelpRow>,
@@ -58,7 +57,7 @@ impl App {
                                 }
                             } else {
                                 let mut index = 0;
-                                for (_file, rows) in self.groups.iter().rev() {
+                                for group in self.groups.iter().rev() {
                                     if index == selected {
                                         break;
                                     }
@@ -66,7 +65,7 @@ impl App {
                                     // Header
                                     index += 1;
 
-                                    for row in rows {
+                                    for row in group.rows.iter() {
                                         if index == selected {
                                             return Ok(Some(row.clone()));
                                         }
@@ -123,11 +122,11 @@ impl App {
 
         let mut max_index = 0;
 
-        for (_file, rows) in self.groups.iter().rev() {
+        for group in self.groups.iter().rev() {
             // Header
             max_index += 1;
             // Rows
-            max_index += rows.len();
+            max_index += group.rows.len();
         }
 
         max_index - 1
@@ -211,28 +210,23 @@ impl App {
         let mut items = Vec::new();
 
         if self.search_input.value().is_empty() {
-            for (file, rows) in self.groups.iter() {
-                let group = &file.group;
-                let file_name = &file.file_name;
-                let name = group.name.as_ref().unwrap_or(file_name);
-
+            for group in self.groups.iter() {
                 let mut lines = vec![
                     Line::from(""),
                     Line::from(Span::styled(
-                        name.as_str(),
+                        &group.name,
                         Style::default().fg(Color::LightGreen).bold(),
                     )),
                 ];
 
-                let path = &file.path_string;
                 lines.push(Line::from(Span::styled(
-                    group.description.as_deref().unwrap_or(path),
+                    &group.description,
                     Style::default().fg(Color::Gray).dim(),
                 )));
 
                 items.push(ListItem::new(lines));
 
-                for row in rows {
+                for row in group.rows.iter() {
                     let item = ListItem::new(row.to_list_line(self.max_size));
                     items.push(item);
                 }
@@ -256,14 +250,14 @@ impl App {
     }
 }
 
-fn create_nucleo(groups: &[(DsFile, Vec<HelpRow>)], max_size: usize) -> Nucleo<HelpRow> {
+fn create_nucleo(groups: &[HelpGroup], max_size: usize) -> Nucleo<HelpRow> {
     let nucleo: Nucleo<HelpRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
     let injector = nucleo.injector();
 
-    for (file, rows) in groups.iter().rev() {
-        for row in rows.iter() {
+    for group in groups.iter().rev() {
+        for row in group.rows.iter() {
             injector.push(row.clone(), |r, cols| {
-                cols[0] = format!("{} {}", file.path_string, r.to_string(max_size)).into();
+                cols[0] = format!("{} {}", group.search, r.to_string(max_size)).into();
             });
         }
     }
@@ -271,7 +265,7 @@ fn create_nucleo(groups: &[(DsFile, Vec<HelpRow>)], max_size: usize) -> Nucleo<H
     nucleo
 }
 
-pub fn run_tui(groups: Vec<(DsFile, Vec<HelpRow>)>, max_size: usize) -> Result<Option<HelpRow>> {
+pub fn run_tui(groups: Vec<HelpGroup>, max_size: usize) -> Result<Option<HelpRow>> {
     color_eyre::install()?; // augment errors / panics with easy to read messages
     let mut terminal = ratatui::init();
     let nucleo = create_nucleo(&groups, max_size);

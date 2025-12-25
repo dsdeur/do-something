@@ -4,10 +4,9 @@ use crate::{
     dir::git_root,
     ds_file::{DsFile, Match},
     group::Group,
-    help::HelpRow,
+    help::{HelpGroup, HelpRow},
 };
 use anyhow::Result;
-
 use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Default)]
@@ -93,5 +92,31 @@ impl DoSomething {
 
     pub fn file_from_match(&mut self, match_: &Match) -> Result<&DsFile> {
         self.ds_files.load_file(&match_.file_path)
+    }
+
+    pub fn help_groups(&mut self) -> Result<(Vec<HelpGroup>, usize)> {
+        let mut groups = Vec::new();
+        let mut max_size = 0;
+
+        for path in &self.paths {
+            let file = self.ds_files.load_file(path)?;
+            let rows = file.help_rows(&self.current_dir, self.git_root.as_ref())?;
+
+            // If the group has no commands, we skip it
+            if rows.is_empty() {
+                continue;
+            }
+
+            for row in &rows {
+                let len = row.len();
+                if len > max_size {
+                    max_size = len;
+                }
+            }
+
+            groups.push(file.help_group(rows));
+        }
+
+        Ok((groups, max_size))
     }
 }

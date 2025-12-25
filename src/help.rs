@@ -1,10 +1,8 @@
-use std::path::PathBuf;
-
-use crate::ds_file::DsFile;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
 };
+use std::path::PathBuf;
 
 /// Represents a row in the help output
 #[derive(Debug, Clone)]
@@ -172,21 +170,24 @@ impl HelpRow {
     }
 }
 
-/// Print the help lines for a given file
-pub fn print_lines(file: &DsFile, lines: &[HelpRow], max_width: usize) {
-    if lines.is_empty() {
-        return;
-    }
+pub struct HelpGroup {
+    pub name: String,
+    pub description: String,
+    pub search: String,
+    pub rows: Vec<HelpRow>,
+}
 
-    if let Some(name) = &file.group.name {
-        println!("\n{}", name);
-    }
+impl HelpGroup {
+    pub fn print(&self, max_size: usize) {
+        if self.rows.is_empty() {
+            return;
+        }
 
-    if let Some(description) = &file.group.description {
-        println!("{}", description);
-    }
+        println!("\n{}", self.name);
+        println!("{}", self.description);
 
-    for row in lines {
-        println!("{}", row.to_string(max_width));
+        for row in &self.rows {
+            println!("{}", row.to_string(max_size));
+        }
     }
 }

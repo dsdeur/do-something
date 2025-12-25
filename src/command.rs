@@ -1,7 +1,8 @@
 use crate::{
     dir::resolve_path,
-    env::Env,
+    env::{Env, match_env},
     group::{Group, GroupMode},
+    runner::Runner,
 };
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
@@ -121,6 +122,21 @@ impl Command {
             Command::Group(group) => group.default_env.as_ref(),
             _ => None,
         }
+    }
+
+    /// Get the command runner for the command definition
+    pub fn runner<'a>(&'a self, parents: &[&'a Group], args: &'a [&'a str]) -> Result<Runner> {
+        let (envs, default_env) = self.resolved_envs(parents);
+        let mut extra_args = args;
+
+        let env = if let Some((matched_env, args)) = match_env(envs, default_env, extra_args)? {
+            extra_args = args;
+            Some(matched_env)
+        } else {
+            None
+        };
+
+        Runner::from_command(self, &parents, extra_args, env)
     }
 
     /// Get the merged environment configurations from the command and its parents

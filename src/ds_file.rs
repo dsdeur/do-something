@@ -2,7 +2,7 @@ use crate::{
     command::{Command, CommandConfig},
     dir::collapse_to_tilde,
     group::{Group, Walk},
-    help::HelpRow,
+    help::{HelpGroup, HelpRow},
 };
 use anyhow::{Result, anyhow};
 use std::{
@@ -292,5 +292,20 @@ impl DsFile {
             current_dir,
             git_root.as_ref(),
         )
+    }
+
+    pub fn help_group(&self, rows: Vec<HelpRow>) -> HelpGroup {
+        let group = &self.group;
+        let file_name = &self.file_name;
+        let name = group.name.as_ref().unwrap_or(file_name);
+        let path = &self.path_string;
+        let description = group.description.as_deref().unwrap_or(path);
+
+        HelpGroup {
+            name: name.to_string(),
+            description: description.to_string(),
+            search: path.to_string(),
+            rows,
+        }
     }
 }
