@@ -22,7 +22,7 @@ cargo install do-something
 ```
 
 ## How to use
-Define you commands in a `do.json` file:
+Define your commands in a `do.json` file:
 
 ```json
 {
