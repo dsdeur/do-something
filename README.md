@@ -2,13 +2,13 @@
 A simple yet powerful command runner.
 
 ## Highlights
-- Two letter binary `ds` conveniently located on the keyboard for blazingly fast access.
-- TUI with fuzzy search to easily find available commands
-- Easy grouping and nesting of commands
-- Create shortcuts and aliases for commands and groups
-- Define commands in multiple files, for specific folders, or globally available.
-- Manage your environments, load dotenv files, run custom commands, and/or define custom environment vars
-- Easy config in JSON format
+- **Quick access**: Two letter binary `ds` conveniently located on the keyboard for blazingly fast access.
+- **Fuzzy search**: TUI with fuzzy search to easily find available commands
+- **Grouping**: Easy grouping and nesting of commands
+- **Aliases**: Create shortcuts and aliases for commands and groups
+- **Organization**: Define commands in multiple files, for specific folders, or globally available.
+- **Environments**: Manage your environments, load dotenv files, run custom commands, and/or define custom environment vars.
+- **JSON Config**: Simple configuration in JSON files.
 
 ## Disclaimer
 This is a work in progress side project, alpha version, use at your own risk.
