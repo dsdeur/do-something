@@ -209,12 +209,10 @@ impl DsFile {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys: Vec<&str> = match_.keys.iter().map(|s| s.as_str()).collect();
 
-        match command {
-            Command::Inline(_) => Err(anyhow!("Inline commands do not have help rows")),
-            Command::Config(_) => Err(anyhow!("Config commands do not have help rows")),
-            Command::Group(group) => {
-                group.help_rows(&self.path, &mut keys, &mut parents, current_dir, git_root)
-            }
+        if let Command::Group(group) = command {
+            group.help_rows(&self.path, &mut keys, &mut parents, current_dir, git_root)
+        } else {
+            Err(anyhow!("Only groups have help rows"))
         }
     }
 
