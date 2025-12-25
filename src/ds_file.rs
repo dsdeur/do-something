@@ -1,5 +1,5 @@
 use crate::{
-    command::{Command, CommandConfig},
+    command::Command,
     dir::collapse_to_tilde,
     group::{Group, Walk},
     help::{HelpGroup, HelpRow},
@@ -28,8 +28,6 @@ pub struct Match {
     pub score: usize,
     /// The path in the command file that matched
     pub keys: Vec<String>,
-    /// All the alias keys of the command (including parents)
-    pub alias_keys: Vec<Vec<String>>,
 }
 
 impl Match {
@@ -69,10 +67,6 @@ impl Match {
             file_path,
             score,
             keys: keys.iter().map(|s| s.to_string()).collect(),
-            alias_keys: alias_keys
-                .iter()
-                .map(|v| v.iter().map(|s| s.to_string()).collect())
-                .collect(),
         })
     }
 }
@@ -214,59 +208,10 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys: Vec<&str> = match_.keys.iter().map(|s| s.as_str()).collect();
-        let (envs, default_env) = command.resolve_envs(&parents);
-        let mut envs = envs
-            .keys()
-            .map(|f| {
-                if let Some(default_env) = default_env
-                    && *f == default_env
-                {
-                    return Some(format!("({})", f));
-                }
-
-                Some(f.to_string())
-            })
-            .collect::<Vec<Option<String>>>();
-
-        if envs.is_empty() {
-            envs.push(None);
-        }
 
         match command {
-            Command::Inline(cmd) => {
-                let rows = envs
-                    .iter()
-                    .map(|env| {
-                        HelpRow::new(
-                            self.path.clone(),
-                            keys.iter().map(|s| s.to_string()).collect(),
-                            match_.alias_keys.clone(),
-                            cmd.clone(),
-                            env.clone(),
-                        )
-                    })
-                    .collect();
-
-                Ok(rows)
-            }
-
-            Command::Config(CommandConfig { command, .. }) => {
-                let rows = envs
-                    .iter()
-                    .map(|env| {
-                        HelpRow::new(
-                            self.path.clone(),
-                            keys.iter().map(|s| s.to_string()).collect(),
-                            match_.alias_keys.clone(),
-                            command.clone(),
-                            env.clone(),
-                        )
-                    })
-                    .collect();
-
-                Ok(rows)
-            }
-
+            Command::Inline(_) => Err(anyhow!("Inline commands do not have help rows")),
+            Command::Config(_) => Err(anyhow!("Config commands do not have help rows")),
             Command::Group(group) => {
                 group.help_rows(&self.path, &mut keys, &mut parents, current_dir, git_root)
             }
