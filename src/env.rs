@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Environment configuration, a dotenv file path
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct DotenvConfig {
     /// The path to the dotenv file
     pub path: String,
@@ -12,7 +12,7 @@ pub struct DotenvConfig {
 }
 
 /// Environment configuration, run a command to load environment variables
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct EnvCommand {
     /// The command to run to load environment variables
     pub command: String,
@@ -21,14 +21,14 @@ pub struct EnvCommand {
 }
 
 /// Environment configuration, a set of key-value pairs
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct EnvVars {
     /// The environment variables as key-value pairs
     pub vars: BTreeMap<String, String>,
 }
 
 /// An environment definition, either a dotenv file or a command to load envs
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 #[serde(untagged)]
 pub enum Env {
     /// A dotenv file path

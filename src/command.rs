@@ -573,4 +573,144 @@ mod tests {
             assert_eq!(aliases, case.expected_aliases, "{}", case.name);
         }
     }
+
+    #[test]
+    fn resolve_envs() {
+        struct Case {
+            name: &'static str,
+            keys: Vec<String>,
+            expected_env_keys: Vec<&'static str>,
+            expected_default_env: Option<&'static str>,
+            expected_envs: Vec<(&'static str, Env)>,
+        }
+
+        let file = include_str!("../tests/fixtures/environments.json");
+        let ds_file =
+            DsFile::from_json(file.to_string(), "../tests/fixtures/environments.json").unwrap();
+
+        fn vars_map(vars: &[(&'static str, &'static str)]) -> BTreeMap<String, String> {
+            vars.iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect()
+        }
+
+        let cases = vec![
+            Case {
+                name: "No command envs, uses root envs only",
+                keys: vec!["command-no-env".to_string()],
+                expected_env_keys: vec!["root-dotenv"],
+                expected_default_env: None,
+                expected_envs: vec![("root-dotenv", Env::Dotenv(".root-env".to_string()))],
+            },
+            Case {
+                name: "Group envs merge with root envs",
+                keys: vec!["group-env".to_string(), "group-cmd".to_string()],
+                expected_env_keys: vec![
+                    "group-command",
+                    "group-config",
+                    "group-vars",
+                    "root-dotenv",
+                ],
+                expected_default_env: Some("group-vars"),
+                expected_envs: vec![
+                    ("root-dotenv", Env::Dotenv(".root-env".to_string())),
+                    (
+                        "group-config",
+                        Env::Config(crate::env::DotenvConfig {
+                            path: ".group-env".to_string(),
+                            vars: Some(vars_map(&[("GROUP_VAR", "group_value")])),
+                        }),
+                    ),
+                    (
+                        "group-vars",
+                        Env::Vars(crate::env::EnvVars {
+                            vars: vars_map(&[("GROUP_VARS", "group_vars")]),
+                        }),
+                    ),
+                    (
+                        "group-command",
+                        Env::Command(crate::env::EnvCommand {
+                            command: "echo 'GroupEnvCommand'".to_string(),
+                            vars: None,
+                        }),
+                    ),
+                ],
+            },
+            Case {
+                name: "Command default env overrides group default",
+                keys: vec!["group-env".to_string(), "command-env".to_string()],
+                expected_env_keys: vec![
+                    "command-dotenv",
+                    "command-vars",
+                    "group-command",
+                    "group-config",
+                    "group-vars",
+                    "root-dotenv",
+                ],
+                expected_default_env: Some("command-vars"),
+                expected_envs: vec![
+                    ("root-dotenv", Env::Dotenv(".root-env".to_string())),
+                    (
+                        "group-config",
+                        Env::Config(crate::env::DotenvConfig {
+                            path: ".group-env".to_string(),
+                            vars: Some(vars_map(&[("GROUP_VAR", "group_value")])),
+                        }),
+                    ),
+                    (
+                        "group-vars",
+                        Env::Vars(crate::env::EnvVars {
+                            vars: vars_map(&[("GROUP_VARS", "group_vars")]),
+                        }),
+                    ),
+                    (
+                        "group-command",
+                        Env::Command(crate::env::EnvCommand {
+                            command: "echo 'GroupEnvCommand'".to_string(),
+                            vars: None,
+                        }),
+                    ),
+                    (
+                        "command-vars",
+                        Env::Vars(crate::env::EnvVars {
+                            vars: vars_map(&[("COMMAND_VAR", "command_value")]),
+                        }),
+                    ),
+                    ("command-dotenv", Env::Dotenv(".command-env".to_string())),
+                ],
+            },
+        ];
+
+        for case in cases {
+            let (command, parents) = ds_file.command_from_keys(&case.keys).unwrap();
+            let parents_with_root = vec![ds_file.group.clone()]
+                .into_iter()
+                .chain(parents.into_iter().cloned().collect::<Vec<Group>>())
+                .collect::<Vec<Group>>();
+
+            let (envs, default_env) =
+                command.resolve_envs(&parents_with_root.iter().collect::<Vec<&Group>>());
+
+            let mut got_env_keys = envs.keys().map(|k| k.to_string()).collect::<Vec<String>>();
+            let mut expected_env_keys = case
+                .expected_env_keys
+                .iter()
+                .map(|k| k.to_string())
+                .collect::<Vec<String>>();
+
+            got_env_keys.sort();
+            expected_env_keys.sort();
+
+            assert_eq!(got_env_keys, expected_env_keys, "{}", case.name);
+            assert_eq!(default_env, case.expected_default_env, "{}", case.name);
+
+            for (key, expected_env) in &case.expected_envs {
+                let env = *envs
+                    .get(&key.to_string())
+                    .unwrap_or_else(|| panic!("{} missing env '{}'", case.name, key));
+
+                assert_eq!(env, expected_env, "{}", case.name);
+            }
+        }
+    }
 }

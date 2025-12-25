@@ -5,33 +5,40 @@
     },
     "group-env": {
       "commands": {
-        "group-cmd": "echo 'GroupEnv'"
+        "group-cmd": "echo 'GroupEnv'",
+        "command-env": {
+          "command": "echo 'CommandEnv'",
+          "default_env": "command-vars",
+          "envs": {
+            "command-vars": {
+              "vars": {
+                "COMMAND_VAR": "command_value"
+              }
+            },
+            "command-dotenv": ".command-env"
+          }
+        }
       },
-      "env": {
-        "group-env-1": {
-          "path": ".group-env-1",
+      "default_env": "group-vars",
+      "envs": {
+        "group-config": {
+          "path": ".group-env",
           "vars": {
-            "GROUP_VAR_1": "group_value_1"
+            "GROUP_VAR": "group_value"
           }
         },
-        "group-env-2": {
-          "path": ".group-env-2",
+        "group-vars": {
           "vars": {
-            "GROUP_VAR_2": "group_value_2"
+            "GROUP_VARS": "group_vars"
           }
         },
-        "command": {
-          "command": "echo 'EnvCommand'"
-        },
-        "vars": {
-          "vars": {
-            "VARS": "vars"
-          }
+        "group-command": {
+          "command": "echo 'GroupEnvCommand'"
         }
       }
     }
   },
   "envs": {
-    "root-env": ".root-env"
+    "root-dotenv": ".root-env"
   }
 }
