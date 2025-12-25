@@ -5,8 +5,12 @@ use crate::{
     ds_file::{DsFile, Match},
     group::Group,
     help::{HelpGroup, HelpRow},
+    runner::Runner,
+    tui::run_tui,
 };
 use anyhow::Result;
+use crossterm::style::Stylize;
+use std::io::IsTerminal;
 use std::{collections::BTreeMap, path::PathBuf};
 
 /// Collection of loaded ds_files, to avoid reloading them multiple times
@@ -89,6 +93,11 @@ impl DoSomething {
         file.command_from_keys(&match_.keys)
     }
 
+    pub fn command_from_help_row(&mut self, row: &HelpRow) -> Result<(&Command, Vec<&Group>)> {
+        let file = self.ds_files.load_file(&row.file_path)?;
+        file.command_from_keys(&row.key)
+    }
+
     /// Get help rows for a specific match
     pub fn help_rows_for_match(&mut self, match_: &Match) -> Result<Vec<HelpRow>> {
         let file = self.ds_files.load_file(&match_.file_path)?;
@@ -125,5 +134,71 @@ impl DoSomething {
         }
 
         Ok((groups, max_size))
+    }
+
+    /// Run the command, if it is a command runner
+    /// - If it is a help runner, it does nothing
+    pub fn run(&self, runner: Runner) -> Result<()> {
+        if let Runner::Command(cmd_str, mut command) = runner {
+            println!("{}", cmd_str.dim());
+            let status = command.spawn()?.wait()?;
+            std::process::exit(status.code().unwrap_or(1));
+        }
+
+        Ok(())
+    }
+
+    pub fn run_help_row(&mut self, row: Option<HelpRow>) -> Result<()> {
+        if let Some(row) = row {
+            let (command, parents) = self.command_from_help_row(&row)?;
+            let mut args = vec![];
+
+            // Add the environment if any, so the matching logic can pick it up
+            if let Some(env) = &row.env {
+                args.push(env.as_str());
+            }
+
+            let runner = command.runner(&parents, args.as_slice())?;
+            self.run(runner)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn render_help(&mut self) -> Result<()> {
+        let (groups, max_size) = self.help_groups()?;
+
+        // If not a terminal, we just print the help
+        if !std::io::stdout().is_terminal() {
+            for group in groups {
+                group.print(max_size);
+            }
+            return Ok(());
+        }
+
+        // Otherwise, we run the TUI
+        let row = run_tui(groups, max_size).unwrap();
+        self.run_help_row(row)
+    }
+
+    pub fn run_match(&mut self, args_str: &[&str]) -> Result<()> {
+        // Get the runner based on the provided arguments
+        let match_ = self.match_command(&args_str)?;
+        let (command, parents) = self.command_from_match(&match_)?;
+        let runner = command.runner(&parents, &args_str[match_.score..])?;
+
+        // Execute the runner
+        match runner {
+            Runner::Command(_, _) => self.run(runner),
+            Runner::Help => {
+                let lines = self.help_rows_for_match(&match_)?;
+                let file = self.file_from_match(&match_)?;
+                let max_size = lines.iter().map(HelpRow::len).max().unwrap_or(0);
+                let row = run_tui(vec![(file.help_group(lines))], max_size);
+                self.run_help_row(row.unwrap())?;
+
+                std::process::exit(0);
+            }
+        }
     }
 }
