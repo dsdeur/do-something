@@ -93,6 +93,7 @@ impl DoSomething {
         file.command_from_keys(&match_.keys)
     }
 
+    /// Get the command and its parents from a help row
     pub fn command_from_help_row(&mut self, row: &HelpRow) -> Result<(&Command, Vec<&Group>)> {
         let file = self.ds_files.load_file(&row.file_path)?;
         file.command_from_keys(&row.key)
@@ -148,6 +149,7 @@ impl DoSomething {
         Ok(())
     }
 
+    /// Run a help row by finding its command and executing it
     pub fn run_help_row(&mut self, row: Option<HelpRow>) -> Result<()> {
         if let Some(row) = row {
             let (command, parents) = self.command_from_help_row(&row)?;
@@ -165,6 +167,7 @@ impl DoSomething {
         Ok(())
     }
 
+    /// Render the TUI fuzzy search to select a command
     pub fn render_tui(&mut self) -> Result<()> {
         let (groups, max_size) = self.help_groups()?;
 
@@ -181,6 +184,7 @@ impl DoSomething {
         self.run_help_row(row)
     }
 
+    /// Run a match based on provided arguments
     pub fn run_match(&mut self, args_str: &[&str]) -> Result<()> {
         // Get the runner based on the provided arguments
         let match_ = self.match_command(args_str)?;
