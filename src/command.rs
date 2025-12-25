@@ -279,7 +279,7 @@ impl Command {
     pub fn resolve_default<'a>(&'a self, parents: &mut Option<&mut Vec<&'a Group>>) -> &'a Self {
         // Resolve a group with a default, to it's default command
         match &self {
-            Command::Group(group) => group.get_default_command(parents).unwrap_or(self),
+            Command::Group(group) => group.default_command(parents).unwrap_or(self),
             _ => self,
         }
     }

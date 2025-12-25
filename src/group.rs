@@ -65,13 +65,19 @@ pub struct Group {
 }
 
 impl Group {
+    /// Walk through the command tree iteratively, allowing control over the walk.
+    /// - `keys`: Mutable vector of current command keys in the path.
+    /// - `parents`: Mutable vector of parent groups leading to the current command.
+    /// - `on_command`: Callback function called for each command, returning a `Walk` action.
+    #[allow(clippy::type_complexity)]
     pub fn walk_tree_iter<'a>(
         &'a self,
+        keys: &mut Vec<&'a str>,
+        parents: &mut Vec<&'a Group>,
         on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
     ) {
-        let mut keys: Vec<&str> = Vec::new();
-        let mut parents = vec![self];
         let mut stack = Vec::new();
+        parents.push(self);
 
         enum StackItem<'a> {
             Command(&'a str, &'a Command),
@@ -127,51 +133,6 @@ impl Group {
         }
     }
 
-    /// Walk the group commands recursively, calling `on_command` for each command.
-    #[allow(clippy::type_complexity)]
-    pub fn walk_tree<'a>(
-        &'a self,
-        keys: &mut Vec<&'a str>,
-        parents: &mut Vec<&'a Group>,
-        on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
-    ) -> Walk {
-        parents.push(self);
-
-        for (key, command) in self.commands.iter() {
-            keys.push(key);
-
-            match on_command(keys, command, parents) {
-                Walk::Continue => (),
-                // Skip the current command, meaning don't process the group
-                Walk::Skip => {
-                    keys.pop();
-                    continue;
-                }
-                // Stop the walk, meaning don't process any more commands
-                Walk::Stop => {
-                    keys.pop();
-                    parents.pop();
-                    return Walk::Stop;
-                }
-            };
-
-            if let Command::Group(group) = command {
-                // If the command is a group, walk through its tree
-                // If the walk returns Stop, we stop processing
-                if group.walk_tree(keys, parents, on_command) == Walk::Stop {
-                    keys.pop();
-                    parents.pop();
-                    return Walk::Stop;
-                }
-            }
-
-            keys.pop();
-        }
-
-        parents.pop();
-        Walk::Continue
-    }
-
     /// Walk through all commands in the group and its subgroups
     /// - Calls `on_command` for each command with the current path, command definition, and parent groups
     /// - The path is a vector of strings representing the command keys
@@ -182,11 +143,13 @@ impl Group {
         &'a self,
         on_command: &mut dyn FnMut(&[&str], &Command, &[&'a Group]) -> Walk,
     ) {
-        self.walk_tree_iter(on_command);
+        let mut keys = Vec::new();
+        let mut parents = Vec::new();
+        self.walk_tree_iter(&mut keys, &mut parents, on_command);
     }
 
     /// Get the help rows for the group and its subgroups
-    pub fn get_help_rows<'a>(
+    pub fn help_rows<'a>(
         &'a self,
         file_path: impl AsRef<Path>,
         keys: &mut Vec<&'a str>,
@@ -197,7 +160,7 @@ impl Group {
         let mut rows = Vec::new();
         let mut err = None;
 
-        self.walk_tree(keys, parents, &mut |keys, cmd, parents| {
+        self.walk_tree_iter(keys, parents, &mut |keys, cmd, parents| {
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
             match cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref()) {
                 Err(_) => {
@@ -254,7 +217,8 @@ impl Group {
         err.map_or(Ok(rows), Err)
     }
 
-    pub fn get_default_command<'a>(
+    /// Get the default command for the group, if it exists
+    pub fn default_command<'a>(
         &'a self,
         parents: &mut Option<&mut Vec<&'a Group>>,
     ) -> Option<&'a Command> {

@@ -267,7 +267,7 @@ impl DsFile {
                 Ok(rows)
             }
 
-            Command::Group(group) => group.get_help_rows(
+            Command::Group(group) => group.help_rows(
                 &self.file_name,
                 &mut keys,
                 &mut parents,
@@ -285,7 +285,7 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
-        self.group.get_help_rows(
+        self.group.help_rows(
             &self.file_name,
             &mut keys,
             &mut parents,
