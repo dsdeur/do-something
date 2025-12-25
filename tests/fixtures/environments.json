@@ -1,0 +1,37 @@
+{
+  "commands": {
+    "command-no-env": {
+      "command": "echo 'NoEnv'"
+    },
+    "group-env": {
+      "commands": {
+        "group-cmd": "echo 'GroupEnv'"
+      },
+      "env": {
+        "group-env-1": {
+          "path": ".group-env-1",
+          "vars": {
+            "GROUP_VAR_1": "group_value_1"
+          }
+        },
+        "group-env-2": {
+          "path": ".group-env-2",
+          "vars": {
+            "GROUP_VAR_2": "group_value_2"
+          }
+        },
+        "command": {
+          "command": "echo 'EnvCommand'"
+        },
+        "vars": {
+          "vars": {
+            "VARS": "vars"
+          }
+        }
+      }
+    }
+  },
+  "envs": {
+    "root-env": ".root-env"
+  }
+}

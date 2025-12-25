@@ -1,5 +1,12 @@
 {
   "commands": {
+    "command-with-git-root": {
+      "command": "echo 'WithRoot'",
+      "root": {
+        "path": "/command/root",
+        "scope": "GitRoot"
+      }
+    },
     "global-group": {
       "commands": {
         "global-cmd": "echo 'Global'"
@@ -26,6 +33,14 @@
         "path": "/nested/folder",
         "scope": "Exact"
       }
+    },
+    "no-root-group": {
+      "commands": {
+        "no-root-cmd": "echo 'NoRoot'"
+      }
     }
+  },
+  "root": {
+    "path": "/root/folder"
   }
 }

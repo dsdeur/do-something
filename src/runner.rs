@@ -92,7 +92,7 @@ impl Runner {
         extra_args: &[&str],
         env: Option<&Env>,
     ) -> Result<Self> {
-        let path = command.resolve_root(parents)?;
+        let path = command.resolve_root_path(parents)?;
 
         let runner = match command {
             Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args, env)?,

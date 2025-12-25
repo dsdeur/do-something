@@ -72,7 +72,7 @@ impl Command {
     /// Get the root path and configuration for the command
     /// - Returns a tuple of the root configuration and the resolved path
     /// - Looks at the command first, then at the parent groups
-    pub fn resolve_root<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
+    pub fn resolve_root_path<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
         let command_root = match self {
             Command::Config(cmd) => cmd.root.as_ref(),
             Command::Group(group) => group.root.as_ref(),
@@ -320,7 +320,7 @@ mod tests {
             is_in_scope: bool,
         }
 
-        let json = include_str!("../tests/fixtures/scoping.json");
+        let json = include_str!("../tests/fixtures/root-and-scoping.json");
         let group: Group = serde_json::from_str(json).unwrap();
 
         let cases = [
@@ -380,6 +380,28 @@ mod tests {
                 git_root: Some("/nested/folder"),
                 is_in_scope: true,
             },
+            Case {
+                name: "Git root command not matching",
+                command: group
+                    .commands
+                    .get("command-with-git-root")
+                    .cloned()
+                    .unwrap(),
+                current_dir: "/some/other/dir",
+                git_root: Some("/some/other/dir"),
+                is_in_scope: false,
+            },
+            Case {
+                name: "Git root command matching",
+                command: group
+                    .commands
+                    .get("command-with-git-root")
+                    .cloned()
+                    .unwrap(),
+                current_dir: "/command/root/nested",
+                git_root: Some("/command/root"),
+                is_in_scope: true,
+            },
         ];
 
         for case in cases {
@@ -389,6 +411,63 @@ mod tests {
                 .unwrap();
 
             assert_eq!(result, case.is_in_scope, "{}", case.name);
+        }
+    }
+
+    #[test]
+    fn resolve_root_path() {
+        struct Case {
+            name: &'static str,
+            command: Command,
+            parents: Vec<Group>,
+            expected_root_path: Option<PathBuf>,
+        }
+
+        let json = include_str!("../tests/fixtures/root-and-scoping.json");
+        let ds_file =
+            DsFile::from_json(json.to_string(), "../tests/fixtures/root-and-scoping.json").unwrap();
+
+        let group: Group = serde_json::from_str(json).unwrap();
+        let parents = vec![ds_file.group.clone()];
+
+        let cases = [
+            Case {
+                name: "No root, top level root path",
+                command: group.commands.get("no-root-group").cloned().unwrap(),
+                parents: parents.clone(),
+                expected_root_path: Some(PathBuf::from("/root/folder")),
+            },
+            Case {
+                name: "No root, no parent root",
+                command: group.commands.get("no-root-group").cloned().unwrap(),
+                parents: vec![],
+                expected_root_path: None,
+            },
+            Case {
+                name: "Group with root",
+                command: group.commands.get("global-group").cloned().unwrap(),
+                parents: parents.clone(),
+                expected_root_path: Some(PathBuf::from("/nested/folder")),
+            },
+            Case {
+                name: "Command with root",
+                command: group
+                    .commands
+                    .get("command-with-git-root")
+                    .cloned()
+                    .unwrap(),
+                parents: parents.clone(),
+                expected_root_path: Some(PathBuf::from("/command/root")),
+            },
+        ];
+
+        for case in cases {
+            let result = case
+                .command
+                .resolve_root_path(&case.parents.iter().collect::<Vec<&Group>>())
+                .unwrap();
+
+            assert_eq!(result, case.expected_root_path, "{}", case.name);
         }
     }
 
