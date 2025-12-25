@@ -4,6 +4,10 @@
       "aliases": ["i"],
       "command": "cargo build --release && cargo install --path ."
     },
+    "build": {
+      "aliases": ["b"],
+      "command": "cargo build --release"
+    },
     "run": {
       "aliases": ["r"],
       "command": "cargo run --"
