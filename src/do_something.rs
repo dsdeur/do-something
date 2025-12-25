@@ -165,7 +165,7 @@ impl DoSomething {
         Ok(())
     }
 
-    pub fn render_help(&mut self) -> Result<()> {
+    pub fn render_tui(&mut self) -> Result<()> {
         let (groups, max_size) = self.help_groups()?;
 
         // If not a terminal, we just print the help

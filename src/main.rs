@@ -11,12 +11,12 @@ pub fn run() -> Result<()> {
     let args_str: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
     if args_str.is_empty() {
-        // If no arguments are provided, we render the help for all commands
-        ds.render_help()?;
-        std::process::exit(0);
+        // If no arguments are provided, we show the fuzzy finder TUI
+        ds.render_tui()
+    } else {
+        // Otherwise, we match the command
+        ds.run_match(&args_str)
     }
-
-    ds.run_match(&args_str)
 }
 
 fn main() {
