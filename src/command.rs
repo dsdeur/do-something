@@ -12,9 +12,10 @@ use std::{
 };
 
 /// Configures when a command or group is available to run.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub enum RootScope {
     /// The command is always in scope
+    #[default]
     Global,
     /// The current path must be inside the git root path
     GitRoot,
@@ -29,7 +30,8 @@ pub enum RootScope {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RootConfig {
     pub path: String,
-    pub scope: Option<RootScope>,
+    #[serde(default)]
+    pub scope: RootScope,
 }
 
 /// Configuration for a single command.
@@ -70,7 +72,7 @@ impl Command {
     /// Get the root path and configuration for the command
     /// - Returns a tuple of the root configuration and the resolved path
     /// - Looks at the command first, then at the parent groups
-    pub fn resolved_root<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
+    pub fn resolve_root<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
         let command_root = match self {
             Command::Config(cmd) => cmd.root.as_ref(),
             Command::Group(group) => group.root.as_ref(),
@@ -126,7 +128,7 @@ impl Command {
 
     /// Get the command runner for the command definition
     pub fn runner<'a>(&'a self, parents: &[&'a Group], args: &'a [&'a str]) -> Result<Runner> {
-        let (envs, default_env) = self.resolved_envs(parents);
+        let (envs, default_env) = self.resolve_envs(parents);
         let mut extra_args = args;
 
         let env = if let Some((matched_env, args)) = match_env(envs, default_env, extra_args)? {
@@ -140,7 +142,7 @@ impl Command {
     }
 
     /// Get the merged environment configurations from the command and its parents
-    pub fn resolved_envs<'a>(
+    pub fn resolve_envs<'a>(
         &'a self,
         parents: &[&'a Group],
     ) -> (BTreeMap<&'a String, &'a Env>, Option<&'a str>) {
@@ -181,8 +183,8 @@ impl Command {
 
         if let (Some(root_config), Some(target_path)) = root {
             match root_config.scope {
-                Some(RootScope::Exact) => Ok(current_dir.as_ref() == target_path),
-                Some(RootScope::GitRoot) => {
+                RootScope::Exact => Ok(current_dir.as_ref() == target_path),
+                RootScope::GitRoot => {
                     if let Some(git_root) = git_root {
                         Ok(current_dir.as_ref().starts_with(git_root.as_ref())
                             && git_root.as_ref() == target_path)
@@ -190,8 +192,7 @@ impl Command {
                         Ok(false)
                     }
                 }
-                Some(RootScope::Global) => Ok(true),
-                None => Ok(true),
+                RootScope::Global => Ok(true),
             }
         } else {
             Ok(true)
@@ -202,7 +203,7 @@ impl Command {
     /// - This function collects the keys from the command and its parent groups,
     /// - Resolves aliases if they exist
     /// - Returns a vector of vectors, where each represents one level of aliases
-    pub fn resolved_aliases<'a>(
+    pub fn resolve_aliases<'a>(
         &'a self,
         keys: &[&'a str],
         parents: &[&'a Group],

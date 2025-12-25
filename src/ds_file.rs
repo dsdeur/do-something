@@ -174,7 +174,7 @@ impl DsFile {
             }
 
             // Calculate the match score
-            let command_keys = cmd.resolved_aliases(keys, parents);
+            let command_keys = cmd.resolve_aliases(keys, parents);
             let m = Match::from_command(self.path.clone(), keys, &command_keys, target);
 
             if let Some(m) = m {
@@ -214,7 +214,7 @@ impl DsFile {
     ) -> Result<Vec<HelpRow>> {
         let (command, mut parents) = self.command_from_keys(&match_.keys)?;
         let mut keys: Vec<&str> = match_.keys.iter().map(|s| s.as_str()).collect();
-        let (envs, default_env) = command.resolved_envs(&parents);
+        let (envs, default_env) = command.resolve_envs(&parents);
         let mut envs = envs
             .keys()
             .map(|f| {
@@ -294,6 +294,9 @@ impl DsFile {
         )
     }
 
+    /// Create the base group, mainly constructing the name and description
+    /// - Uses the file name as the default name if not provided
+    /// - Uses the path as the default description if not provided
     pub fn help_group(&self, rows: Vec<HelpRow>) -> HelpGroup {
         let group = &self.group;
         let file_name = &self.file_name;

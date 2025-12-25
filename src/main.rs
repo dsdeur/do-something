@@ -13,7 +13,7 @@ pub fn run_help_row(row: Option<HelpRow>) -> Result<()> {
     if let Some(row) = row {
         let file = DsFile::from_file(&row.file_path)?;
         let (command, parents) = file.command_from_keys(&row.key)?;
-        let (envs, default_env) = command.resolved_envs(&parents);
+        let (envs, default_env) = command.resolve_envs(&parents);
         let env = get_env_by_key(envs, row.env, default_env);
         let runner = Runner::from_command(command, &parents, &[], env)?;
 

@@ -41,12 +41,14 @@ pub enum Env {
     Vars(EnvVars),
 }
 
+/// The environment variables and/or command to actually run
 pub struct RunnerEnv {
     pub command: Option<String>,
     pub vars: Option<BTreeMap<String, String>>,
 }
 
 impl Env {
+    /// Get the environment variables and/or command to run from the config
     pub fn get_env_vars(&self) -> RunnerEnv {
         match self {
             Env::Dotenv(path) => {
@@ -92,6 +94,7 @@ impl Env {
     }
 }
 
+/// Match an environment from the provided args and default
 pub fn match_env<'a>(
     envs: BTreeMap<&'a String, &'a Env>,
     default_env: Option<&'a str>,
@@ -128,6 +131,7 @@ pub fn match_env<'a>(
     }
 }
 
+/// Get an environment by key or default
 pub fn get_env_by_key<'a>(
     envs: BTreeMap<&'a String, &'a Env>,
     key: Option<String>,

@@ -9,6 +9,7 @@ use crate::{
 use anyhow::Result;
 use std::{collections::BTreeMap, path::PathBuf};
 
+/// Collection of loaded ds_files, to avoid reloading them multiple times
 #[derive(Default)]
 pub struct DsFiles {
     pub files: BTreeMap<PathBuf, DsFile>,
@@ -27,6 +28,7 @@ impl DsFiles {
     }
 }
 
+/// Main DoSomething structure, holding loaded files and configuration
 pub struct DoSomething {
     pub ds_files: DsFiles,
     pub config: GlobalConfig,
@@ -36,6 +38,7 @@ pub struct DoSomething {
 }
 
 impl DoSomething {
+    /// Create a new DoSomething instance, loading configuration and file paths
     pub fn new() -> Result<Self> {
         let config = GlobalConfig::load()?;
         let paths = config.file_paths()?;
@@ -80,20 +83,24 @@ impl DoSomething {
         }
     }
 
+    /// Get the command and its parents from a match
     pub fn command_from_match(&mut self, match_: &Match) -> Result<(&Command, Vec<&Group>)> {
         let file = self.ds_files.load_file(&match_.file_path)?;
         file.command_from_keys(&match_.keys)
     }
 
+    /// Get help rows for a specific match
     pub fn help_rows_for_match(&mut self, match_: &Match) -> Result<Vec<HelpRow>> {
         let file = self.ds_files.load_file(&match_.file_path)?;
         file.help_rows_for_match(match_, &self.current_dir, self.git_root.as_ref())
     }
 
+    /// Get the DsFile from a match
     pub fn file_from_match(&mut self, match_: &Match) -> Result<&DsFile> {
         self.ds_files.load_file(&match_.file_path)
     }
 
+    /// Get help groups for all loaded files
     pub fn help_groups(&mut self) -> Result<(Vec<HelpGroup>, usize)> {
         let mut groups = Vec::new();
         let mut max_size = 0;

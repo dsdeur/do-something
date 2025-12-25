@@ -31,7 +31,6 @@ pub struct GlobalConfig {
     #[serde(default)]
     pub on_conflict: OnConflict,
     /// Optional list of files to to collect commands from
-    #[serde(default)]
     pub ds_files: Option<Vec<String>>,
 }
 
