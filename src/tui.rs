@@ -57,7 +57,7 @@ impl App {
                                 }
                             } else {
                                 let mut index = 0;
-                                for group in self.groups.iter().rev() {
+                                for group in self.groups.iter() {
                                     if index == selected {
                                         break;
                                     }
@@ -122,7 +122,7 @@ impl App {
 
         let mut max_index = 0;
 
-        for group in self.groups.iter().rev() {
+        for group in self.groups.iter() {
             // Header
             max_index += 1;
             // Rows
@@ -254,7 +254,7 @@ fn create_nucleo(groups: &[HelpGroup], max_size: usize) -> Nucleo<HelpRow> {
     let nucleo: Nucleo<HelpRow> = Nucleo::new(nucleo::Config::DEFAULT, Arc::new(|| {}), None, 1);
     let injector = nucleo.injector();
 
-    for group in groups.iter().rev() {
+    for group in groups.iter() {
         for row in group.rows.iter() {
             injector.push(row.clone(), |r, cols| {
                 cols[0] = format!("{} {}", group.search, r.to_string(max_size)).into();
