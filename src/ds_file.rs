@@ -267,13 +267,9 @@ impl DsFile {
                 Ok(rows)
             }
 
-            Command::Group(group) => group.help_rows(
-                &self.file_name,
-                &mut keys,
-                &mut parents,
-                current_dir,
-                git_root,
-            ),
+            Command::Group(group) => {
+                group.help_rows(&self.path, &mut keys, &mut parents, current_dir, git_root)
+            }
         }
     }
 
@@ -286,7 +282,7 @@ impl DsFile {
         let mut keys = Vec::new();
         let mut parents = Vec::new();
         self.group.help_rows(
-            &self.file_name,
+            &self.path,
             &mut keys,
             &mut parents,
             current_dir,
