@@ -3,6 +3,10 @@ name = "do-something"
 version = "0.1.0"
 edition = "2024"
 license = "MIT"
+authors = ["Durgé Seerden"]
+description = "A simple yet powerful command runner."
+repository = "https://github.com/dsdeur/do-something"
+
 
 [dependencies]
 anyhow = "1.0.100"
