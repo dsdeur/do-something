@@ -93,6 +93,7 @@ impl HelpRow {
         Some(aliases.collect::<Vec<_>>().join(" "))
     }
 
+    /// Get the string representation of the help row
     pub fn to_string(&self, max_size: usize) -> String {
         let group_keys = self.group_keys();
         let groups = if group_keys.is_empty() {
@@ -120,6 +121,7 @@ impl HelpRow {
         )
     }
 
+    /// Convert the help row to a list line for TUI display
     pub fn to_list_line(&self, max_size: usize) -> Vec<Line<'static>> {
         let group_keys = self.group_keys();
 
@@ -174,6 +176,7 @@ impl HelpRow {
     }
 }
 
+/// Represents a group of help rows for display
 pub struct HelpGroup {
     pub name: String,
     pub description: String,
@@ -182,6 +185,7 @@ pub struct HelpGroup {
 }
 
 impl HelpGroup {
+    /// Print the help group to the console
     pub fn print(&self, max_size: usize) {
         if self.rows.is_empty() {
             return;

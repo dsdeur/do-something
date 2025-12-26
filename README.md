@@ -10,11 +10,14 @@ A simple yet powerful command runner, with TUI and fuzzy search.
 - **Environments**: Manage your environments, load dotenv files, run custom commands, and/or define custom environment vars.
 - **JSON Config**: Simple configuration in JSON files.
 
-## Disclaimer
-This is a work in progress side project, alpha version, use at your own risk.
+## Disclaimer & warning
+This is a work in progress side project, unpublished, alpha version, use at your own risk.
+
 The basics should work fairly well, but I would not be surprised if there are bugs and unhandled edge cases.
 
 Only tested on Mac OS and Ubuntu, it will probably not work on Windows.
+
+WARNING: Do not run commands from untrusted files. Always check what you are running.
 
 ## Install
 Clone the repo. Build and install:

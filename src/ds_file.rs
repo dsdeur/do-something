@@ -72,6 +72,7 @@ impl Match {
 }
 
 impl DsFile {
+    /// Load a group configuration from a JSON string and path.
     pub fn from_json(json: String, path: impl AsRef<Path>) -> Result<Self> {
         let mut group: Group = serde_json::from_str(&json)?;
         let file_name = path
