@@ -15,6 +15,10 @@
     "clippy": {
       "aliases": ["c"],
       "command": "cargo clippy"
+    },
+    "test": {
+      "aliases": ["t"],
+      "command": "cargo test"
     }
   }
 }
