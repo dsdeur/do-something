@@ -28,10 +28,12 @@ impl DsFiles {
             self.files.insert(path.clone(), ds_file);
         }
 
-        Ok(self
+        let res = self
             .files
             .get(path)
-            .ok_or_else(|| anyhow::anyhow!("File not loaded"))?)
+            .ok_or_else(|| anyhow::anyhow!("File not loaded"))?;
+
+        Ok(res)
     }
 }
 
