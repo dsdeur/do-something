@@ -2,7 +2,7 @@
 A simple yet powerful command runner.
 
 ## Highlights
-- **Quick access**: Two letter binary `ds` conveniently located on the keyboard for blazingly fast access.
+- **Quick access**: Two-letter binary `ds` conveniently located on the keyboard for blazingly fast access.
 - **Fuzzy search**: TUI with fuzzy search to easily find available commands
 - **Grouping**: Easy grouping and nesting of commands
 - **Aliases**: Create shortcuts and aliases for commands and groups
@@ -22,7 +22,7 @@ cargo install do-something
 ```
 
 ## How to use
-Define your commands in a `do.json` file:
+Define your commands in a `ds.json` file:
 
 ```json
 {
@@ -32,7 +32,7 @@ Define your commands in a `do.json` file:
 }
 ```
 
-Calling the command by it's key:
+Calling the command by its key:
 ```bash
 ds hello-world
 ```
@@ -40,13 +40,13 @@ ds hello-world
 That's it!
 
 ### TUI
-You can run the TUI (build with Ratatui) that has fuzzy search (powered by Nucleo) to easily find available commands and run them:
+You can run the TUI (built with Ratatui) that has fuzzy search (powered by Nucleo) to easily find available commands and run them:
 ```bash
 ds
 ```
 Just type to search, use up/down arrow keys to navigate the list, and press `Enter` to run the selected command. You can search for the command, the aliases, the file name, or the actual command that will be run.
 
-You can exit with the `Escape` key or `ctrl + c`
+You can exit with the `Escape` key or `Ctrl+C`.
 
 
 ## Grouping and nesting
@@ -79,7 +79,7 @@ ds api dev
 There is no limit on how deep you can nest.
 
 ### Default group command
-If you add a command named `default` it will be called if the group is ran without extra args.
+If you add a command named `default` it will be called if the group is run without extra args.
 You can also change which command to run by default by setting the `default` setting:
 
 ```json
@@ -124,8 +124,8 @@ You can add aliases for groups and individual commands:
         "push": {
           "aliases": ["pu"],
           "command": "git push"
-        },
-      },
+        }
+      }
     }
   }
 }
@@ -204,7 +204,7 @@ You can also run a command to load the environment, for example to use a secret 
       "vars": {
         "ENVIRONMENT": "production"
       }
-    },
+    }
   }
 }
 ```
@@ -228,7 +228,7 @@ Sometimes you want to group commands, so you can add settings and environments, 
       "mode": "Flattened"
     },
     "other-command": "echo 'Hello'"
-  },
+  }
 }
 ```
 
@@ -244,24 +244,24 @@ While still benefitting from the group configuration like environments in the ex
 ## Multiple files
 You can define your files in multiple places:
 - In a folder or git root, will be discovered in the closest git root.
-- `~/config/do-something/ds.json`
+- `~/.config/do-something/ds.json`
 
-Or place your files wherever you want and include them in the config (`~/config/do-something/config.json`), for example:
+Or place your files wherever you want and include them in the config (`~/.config/do-something/config.json`), for example:
 ```json
 {
-  "ds_files": ["~/.config/do-something/commands/*.json"],
+  "ds_files": ["~/.config/do-something/commands/*.json"]
 }
 ```
 
 ## Root
-You can specific where commands should run and be available by setting the root option:
+You can specify where commands should run and be available by setting the root option:
 ```json
 {
   "commands": {
     "hello": "echo 'Hello, world!'"
   },
   "root": {
-    "path": "~/path/where/to/run",
+    "path": "~/path/where/to/run"
   }
 }
 ```
@@ -293,31 +293,31 @@ You have three scoping options:
 Now the commands will be available anywhere in `~/path/to/git/root` but not outside of it.
 
 ## Config
-You can confige Do Something by creating a config file `~/config/do-something/config.json`.
+You can configure Do Something by creating a config file `~/.config/do-something/config.json`.
 
 Settings:
 - `ds_files`: Define where to look for command files, you can use glob patterns.
 - `on_conflict`: What to do when there are two commands with the same key.
   - `Override` (Default): The last command is used
-  - `Error`: Instead of running a command it will throw and error
+  - `Error`: Instead of running a command it will throw an error
 
 
 ## Why another command runner?
 There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and easy to use. Secondarily, I wanted to improve my Rust skills.
 
 ### Alternatives
-To keep Do Something simple, it is limited in features and capabilities, and alpha version software. If you need something more power, customizability, and mature, I suggest using [Just](https://github.com/casey/just), which is incredibly powerful and full featured, and overall amazing application.
+To keep Do Something simple, it is limited in features and capabilities, and alpha version software. If you need something more powerful, customizable, and mature, I suggest using [Just](https://github.com/casey/just), which is incredibly powerful and full-featured, and an overall amazing application.
 
-They also have a [convenient list of alternatives](https://github.com/casey/just?tab=readme-ov-file#alternatives-and-prior-art), there is plenty of choices.
+They also have a [convenient list of alternatives](https://github.com/casey/just?tab=readme-ov-file#alternatives-and-prior-art), there are plenty of choices.
 
 
 ## Why JSON?
 Preference. JSON is in my opinion the easiest format for configuration. It's simple to read, easy to learn, support is great, and makes it very easy to nest and group commands, which is one of the key features of Do Something. In other words: It's simple yet powerful, which makes it a great fit.
 
-Of course it has it's limitations. I'm considering adding JSONC or JSON5 support. I think TOML isn't bad either, it works great for defining dependencies (Cargo.toml, pyproject.toml), I just find the nesting not as easy to work with, that said, I might try adding support as it seems not too difficult to add.
+Of course it has its limitations. I'm considering adding JSONC or JSON5 support. I think TOML isn't bad either, it works great for defining dependencies (Cargo.toml, pyproject.toml), I just find the nesting not as easy to work with, that said, I might try adding support as it seems not too difficult to add.
 
 ## Contributing
-I have limited time to work on this, but PR's are very welcome. If you have plans to add features, please discuss it first in issues, as I do intent to keep it simple.
+I have limited time to work on this, but PRs are very welcome. If you have plans to add features, please discuss it first in issues, as I do intend to keep it simple.
 
 ## License
 This project is licensed under the [MIT License](./LICENSE).
