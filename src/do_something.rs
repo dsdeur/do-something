@@ -183,7 +183,7 @@ impl DoSomething {
         }
 
         // Otherwise, we run the TUI
-        let row = run_tui(groups, max_size).unwrap();
+        let row = run_tui(groups, max_size)?;
         self.run_help_row(row)
     }
 
@@ -201,8 +201,8 @@ impl DoSomething {
                 let lines = self.help_rows_for_match(&match_)?;
                 let file = self.file_from_match(&match_)?;
                 let max_size = lines.iter().map(HelpRow::len).max().unwrap_or(0);
-                let row = run_tui(vec![(file.help_group(lines))], max_size);
-                self.run_help_row(row.unwrap())?;
+                let row = run_tui(vec![(file.help_group(lines))], max_size)?;
+                self.run_help_row(row)?;
 
                 std::process::exit(0);
             }

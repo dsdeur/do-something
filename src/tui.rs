@@ -1,5 +1,5 @@
 use crate::help::{HelpGroup, HelpRow};
-use color_eyre::{Result, eyre::Context};
+use anyhow::Result;
 use nucleo::Nucleo;
 use ratatui::prelude::*;
 use ratatui::style::palette::tailwind::SLATE;
@@ -266,7 +266,6 @@ fn create_nucleo(groups: &[HelpGroup], max_size: usize) -> Nucleo<HelpRow> {
 }
 
 pub fn run_tui(groups: Vec<HelpGroup>, max_size: usize) -> Result<Option<HelpRow>> {
-    color_eyre::install()?; // augment errors / panics with easy to read messages
     let mut terminal = ratatui::init();
     let nucleo = create_nucleo(&groups, max_size);
 
@@ -280,8 +279,8 @@ pub fn run_tui(groups: Vec<HelpGroup>, max_size: usize) -> Result<Option<HelpRow
         max_size,
     };
 
-    let app_result = app.run(&mut terminal).context("app loop failed");
+    let app_result = app.run(&mut terminal)?;
 
     ratatui::restore();
-    app_result
+    Ok(app_result)
 }
