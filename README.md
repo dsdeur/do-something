@@ -15,7 +15,7 @@ A simple yet powerful command runner, with TUI and fuzzy search.
 
 <br/>
 
-<img width="400" alt="image" src="https://github.com/user-attachments/assets/8843abe1-9083-4eeb-ab77-deb0c4c9d205" />
+<img width="300" alt="image" src="https://github.com/user-attachments/assets/8843abe1-9083-4eeb-ab77-deb0c4c9d205" />
 <br/>
 
 ## Disclaimer & warning
