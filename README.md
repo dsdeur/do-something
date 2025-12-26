@@ -1,6 +1,8 @@
 # Do Something
 A simple yet powerful command runner, with TUI and fuzzy search.
 
+![demo](./demo.gif)
+
 ## Highlights
 - **Quick access**: Two-letter binary `ds` conveniently located on the keyboard for blazingly fast access.
 - **Fuzzy search**: TUI with fuzzy search to easily find available commands
