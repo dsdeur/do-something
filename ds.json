@@ -23,6 +23,9 @@
     "check": {
       "aliases": ["c"],
       "command": "ds clippy && ds test"
+    },
+    "vhs": {
+      "command": "vhs demo.tape"
     }
   }
 }
