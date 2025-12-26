@@ -7,27 +7,13 @@ use std::{
 
 /// Environment configuration, a dotenv file path
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct DotenvConfig {
+pub struct EnvConfig {
     /// The path to the dotenv file
-    pub path: String,
-    /// Optional list of specific variables to load from the command output
+    pub path: Option<String>,
+    /// List of specific variables to load from the command output
     pub vars: Option<BTreeMap<String, String>>,
-}
-
-/// Environment configuration, run a command to load environment variables
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct EnvCommand {
     /// What to prefix the command with when running to load environment variables
-    pub command_prefix: String,
-    /// Optional list of specific variables to load from the command output
-    pub vars: Option<BTreeMap<String, String>>,
-}
-
-/// Environment configuration, a set of key-value pairs
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
-pub struct EnvVars {
-    /// The environment variables as key-value pairs
-    pub vars: BTreeMap<String, String>,
+    pub command_prefix: Option<String>,
 }
 
 /// An environment definition, either a dotenv file or a command to load envs
@@ -37,11 +23,7 @@ pub enum Env {
     /// A dotenv file path
     Dotenv(String),
     /// A dotenv file with specific configuration
-    Config(DotenvConfig),
-    /// A command to load environment variables
-    Command(EnvCommand),
-    /// A set of environment variables defined directly
-    Vars(EnvVars),
+    Config(EnvConfig),
 }
 
 /// The environment variables and/or command to actually run
@@ -58,53 +40,46 @@ fn get_path(file_path: impl AsRef<Path>, env_path: impl AsRef<Path>) -> PathBuf 
         .join(env_path)
 }
 
+fn load_env(
+    file_path: impl AsRef<Path>,
+    path: Option<impl AsRef<Path>>,
+    config_vars: Option<BTreeMap<String, String>>,
+    command_prefix: Option<String>,
+) -> Result<RunnerEnv> {
+    let mut env_vars = if let Some(path) = path {
+        let full_path = get_path(&file_path, path);
+        // Load from dotenv file
+        dotenvy::from_path_iter(full_path)?
+            .filter_map(|item| item.ok())
+            .collect()
+    } else {
+        BTreeMap::new()
+    };
+
+    // Add extra vars if specificied
+    if let Some(vars) = &config_vars {
+        for (key, value) in vars {
+            env_vars.insert(key.clone(), value.clone());
+        }
+    }
+
+    Ok(RunnerEnv {
+        command: command_prefix,
+        vars: Some(env_vars),
+    })
+}
+
 impl Env {
     /// Get the environment variables and/or command to run from the config
     pub fn get_env_vars(&self, file_path: impl AsRef<Path>) -> Result<RunnerEnv> {
         match self {
-            Env::Dotenv(path) => {
-                let full_path = get_path(&file_path, path);
-                println!("Loading dotenv from path: {}", full_path.display());
-
-                // Load from dotenv file
-                let env_vars = dotenvy::from_path_iter(full_path)?
-                    .filter_map(|item| item.ok())
-                    .collect();
-
-                Ok(RunnerEnv {
-                    command: None,
-                    vars: Some(env_vars),
-                })
-            }
-            Env::Config(config) => {
-                // Load from dotenv file with specific vars
-                let full_path = get_path(&file_path, &config.path);
-                println!("Loading dotenv from path: {}", full_path.display());
-
-                let mut env_vars: BTreeMap<String, String> = dotenvy::from_path_iter(full_path)?
-                    .filter_map(|item| item.ok())
-                    .collect();
-
-                // Add extra vars if specificied
-                if let Some(vars) = &config.vars {
-                    for (key, value) in vars {
-                        env_vars.insert(key.clone(), value.clone());
-                    }
-                }
-
-                Ok(RunnerEnv {
-                    command: None,
-                    vars: Some(env_vars),
-                })
-            }
-            Env::Command(cmd) => Ok(RunnerEnv {
-                command: Some(cmd.command_prefix.clone()),
-                vars: cmd.vars.clone(),
-            }),
-            Env::Vars(vars) => Ok(RunnerEnv {
-                command: None,
-                vars: Some(vars.vars.clone()),
-            }),
+            Env::Dotenv(path) => load_env(file_path, Some(path), None, None),
+            Env::Config(config) => load_env(
+                file_path,
+                config.path.as_ref(),
+                config.vars.clone(),
+                config.command_prefix.clone(),
+            ),
         }
     }
 }
@@ -176,8 +151,10 @@ mod tests {
         envs.insert("dev".to_string(), Env::Dotenv(".env.dev".to_string()));
         envs.insert(
             "prod".to_string(),
-            Env::Vars(EnvVars {
-                vars: [("MODE".to_string(), "prod".to_string())].into(),
+            Env::Config(EnvConfig {
+                vars: Some([("MODE".to_string(), "prod".to_string())].into()),
+                path: None,
+                command_prefix: None,
             }),
         );
 

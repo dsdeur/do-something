@@ -206,7 +206,7 @@ You can also run a command to load the environment, for example to use a secret 
       }
     },
     "prod": {
-      "command_prefix": "op run --",
+      "command_prefix": "load-env",
       "vars": {
         "ENVIRONMENT": "production"
       }

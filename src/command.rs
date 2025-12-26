@@ -529,9 +529,11 @@ mod tests {
             ),
             create_case(
                 "Flattened group command",
-                &["group1".to_string(),
+                &[
+                    "group1".to_string(),
                     "group2".to_string(),
-                    "group2-cmd1".to_string()],
+                    "group2-cmd1".to_string(),
+                ],
                 &ds_file,
                 vec![
                     vec!["group1", "g1", "group-one"],
@@ -540,10 +542,12 @@ mod tests {
             ),
             create_case(
                 "Deeply nested, no command alias",
-                &["group1".to_string(),
+                &[
+                    "group1".to_string(),
                     "group2".to_string(),
                     "group3".to_string(),
-                    "group3-cmd1".to_string()],
+                    "group3-cmd1".to_string(),
+                ],
                 &ds_file,
                 vec![
                     vec!["group1", "g1", "group-one"],
@@ -609,21 +613,25 @@ mod tests {
                     ("root-dotenv", Env::Dotenv(".root-env".to_string())),
                     (
                         "group-config",
-                        Env::Config(crate::env::DotenvConfig {
-                            path: ".group-env".to_string(),
+                        Env::Config(crate::env::EnvConfig {
+                            path: Some(".group-env".to_string()),
                             vars: Some(vars_map(&[("GROUP_VAR", "group_value")])),
+                            command_prefix: None,
                         }),
                     ),
                     (
                         "group-vars",
-                        Env::Vars(crate::env::EnvVars {
-                            vars: vars_map(&[("GROUP_VARS", "group_vars")]),
+                        Env::Config(crate::env::EnvConfig {
+                            path: None,
+                            vars: Some(vars_map(&[("GROUP_VARS", "group_vars")])),
+                            command_prefix: None,
                         }),
                     ),
                     (
                         "group-command",
-                        Env::Command(crate::env::EnvCommand {
-                            command_prefix: "echo 'GroupEnvCommand'".to_string(),
+                        Env::Config(crate::env::EnvConfig {
+                            path: None,
+                            command_prefix: Some("echo 'GroupEnvCommand'".to_string()),
                             vars: None,
                         }),
                     ),
@@ -645,28 +653,34 @@ mod tests {
                     ("root-dotenv", Env::Dotenv(".root-env".to_string())),
                     (
                         "group-config",
-                        Env::Config(crate::env::DotenvConfig {
-                            path: ".group-env".to_string(),
+                        Env::Config(crate::env::EnvConfig {
+                            path: Some(".group-env".to_string()),
                             vars: Some(vars_map(&[("GROUP_VAR", "group_value")])),
+                            command_prefix: None,
                         }),
                     ),
                     (
                         "group-vars",
-                        Env::Vars(crate::env::EnvVars {
-                            vars: vars_map(&[("GROUP_VARS", "group_vars")]),
+                        Env::Config(crate::env::EnvConfig {
+                            path: None,
+                            vars: Some(vars_map(&[("GROUP_VARS", "group_vars")])),
+                            command_prefix: None,
                         }),
                     ),
                     (
                         "group-command",
-                        Env::Command(crate::env::EnvCommand {
-                            command_prefix: "echo 'GroupEnvCommand'".to_string(),
+                        Env::Config(crate::env::EnvConfig {
+                            path: None,
                             vars: None,
+                            command_prefix: Some("echo 'GroupEnvCommand'".to_string()),
                         }),
                     ),
                     (
                         "command-vars",
-                        Env::Vars(crate::env::EnvVars {
-                            vars: vars_map(&[("COMMAND_VAR", "command_value")]),
+                        Env::Config(crate::env::EnvConfig {
+                            path: None,
+                            vars: Some(vars_map(&[("COMMAND_VAR", "command_value")])),
+                            command_prefix: None,
                         }),
                     ),
                     ("command-dotenv", Env::Dotenv(".command-env".to_string())),

@@ -13,12 +13,16 @@
       "command": "cargo run --"
     },
     "clippy": {
-      "aliases": ["c"],
+      "aliases": ["cl"],
       "command": "cargo clippy --all-targets --all-features -- -D warnings"
     },
     "test": {
       "aliases": ["t"],
       "command": "cargo test"
+    },
+    "check": {
+      "aliases": ["c"],
+      "command": "ds clippy && ds test"
     }
   }
 }
