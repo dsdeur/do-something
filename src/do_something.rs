@@ -28,7 +28,10 @@ impl DsFiles {
             self.files.insert(path.clone(), ds_file);
         }
 
-        Ok(self.files.get(path).unwrap())
+        Ok(self
+            .files
+            .get(path)
+            .ok_or_else(|| anyhow::anyhow!("File not loaded"))?)
     }
 }
 

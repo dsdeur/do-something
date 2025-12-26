@@ -25,7 +25,7 @@ fn create_command(
 
     // Handle environment
     if let Some(env) = env {
-        let RunnerEnv { command, vars } = env.get_env_vars(file_path);
+        let RunnerEnv { command, vars } = env.get_env_vars(file_path)?;
 
         // Prepend the command if specified
         if let Some(cmd) = command {

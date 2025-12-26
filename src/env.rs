@@ -60,30 +60,28 @@ fn get_path(file_path: impl AsRef<Path>, env_path: impl AsRef<Path>) -> PathBuf 
 
 impl Env {
     /// Get the environment variables and/or command to run from the config
-    pub fn get_env_vars(&self, file_path: impl AsRef<Path>) -> RunnerEnv {
+    pub fn get_env_vars(&self, file_path: impl AsRef<Path>) -> Result<RunnerEnv> {
         match self {
             Env::Dotenv(path) => {
                 let full_path = get_path(&file_path, path);
                 println!("Loading dotenv from path: {}", full_path.display());
 
                 // Load from dotenv file
-                let env_vars = dotenvy::from_path_iter(full_path)
-                    .unwrap()
+                let env_vars = dotenvy::from_path_iter(full_path)?
                     .filter_map(|item| item.ok())
                     .collect();
 
-                RunnerEnv {
+                Ok(RunnerEnv {
                     command: None,
                     vars: Some(env_vars),
-                }
+                })
             }
             Env::Config(config) => {
                 // Load from dotenv file with specific vars
                 let full_path = get_path(&file_path, &config.path);
                 println!("Loading dotenv from path: {}", full_path.display());
 
-                let mut env_vars: BTreeMap<String, String> = dotenvy::from_path_iter(full_path)
-                    .unwrap()
+                let mut env_vars: BTreeMap<String, String> = dotenvy::from_path_iter(full_path)?
                     .filter_map(|item| item.ok())
                     .collect();
 
@@ -94,19 +92,19 @@ impl Env {
                     }
                 }
 
-                RunnerEnv {
+                Ok(RunnerEnv {
                     command: None,
                     vars: Some(env_vars),
-                }
+                })
             }
-            Env::Command(cmd) => RunnerEnv {
+            Env::Command(cmd) => Ok(RunnerEnv {
                 command: Some(cmd.command_prefix.clone()),
                 vars: cmd.vars.clone(),
-            },
-            Env::Vars(vars) => RunnerEnv {
+            }),
+            Env::Vars(vars) => Ok(RunnerEnv {
                 command: None,
                 vars: Some(vars.vars.clone()),
-            },
+            }),
         }
     }
 }
