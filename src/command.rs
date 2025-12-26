@@ -495,7 +495,7 @@ mod tests {
             ds_file: &DsFile,
             expected_aliases: Vec<Vec<&'static str>>,
         ) -> Case {
-            let (command, parents) = ds_file.command_from_keys(&keys).unwrap();
+            let (command, parents) = ds_file.command_from_keys(keys).unwrap();
 
             let parents_with_root = vec![ds_file.group.clone()]
                 .into_iter()
@@ -514,13 +514,13 @@ mod tests {
         let cases = vec![
             create_case(
                 "Top level group with aliases",
-                &vec!["group1".to_string()],
+                &["group1".to_string()],
                 &ds_file,
                 vec![vec!["group1", "g1", "group-one"]],
             ),
             create_case(
                 "Nested command, with group and command aliases",
-                &vec!["group1".to_string(), "group1-cmd1".to_string()],
+                &["group1".to_string(), "group1-cmd1".to_string()],
                 &ds_file,
                 vec![
                     vec!["group1", "g1", "group-one"],
@@ -529,11 +529,9 @@ mod tests {
             ),
             create_case(
                 "Flattened group command",
-                &vec![
-                    "group1".to_string(),
+                &["group1".to_string(),
                     "group2".to_string(),
-                    "group2-cmd1".to_string(),
-                ],
+                    "group2-cmd1".to_string()],
                 &ds_file,
                 vec![
                     vec!["group1", "g1", "group-one"],
@@ -542,12 +540,10 @@ mod tests {
             ),
             create_case(
                 "Deeply nested, no command alias",
-                &vec![
-                    "group1".to_string(),
+                &["group1".to_string(),
                     "group2".to_string(),
                     "group3".to_string(),
-                    "group3-cmd1".to_string(),
-                ],
+                    "group3-cmd1".to_string()],
                 &ds_file,
                 vec![
                     vec!["group1", "g1", "group-one"],

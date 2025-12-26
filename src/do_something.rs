@@ -222,7 +222,7 @@ mod tests {
         DoSomething {
             ds_files: DsFiles::default(),
             config: GlobalConfig::default(),
-            paths: paths.iter().map(|p| PathBuf::from(p)).collect(),
+            paths: paths.iter().map(PathBuf::from).collect(),
             current_dir: std::env::current_dir().unwrap(),
             git_root: None,
         }

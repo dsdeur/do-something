@@ -181,7 +181,7 @@ mod tests {
             }),
         );
 
-        let envs_ref: BTreeMap<&String, &Env> = envs.iter().map(|(k, v)| (k, v)).collect();
+        let envs_ref: BTreeMap<&String, &Env> = envs.iter().collect();
 
         let result = match_env(BTreeMap::new(), None, &["dev"]).unwrap();
         assert!(result.is_none(), "no envs should return None");
