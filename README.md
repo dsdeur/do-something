@@ -32,6 +32,13 @@ Define your commands in a `do.json` file:
 }
 ```
 
+Calling the command by it's key:
+```bash
+ds hello-world
+```
+
+That's it!
+
 ### TUI
 You can run the TUI (build with Ratatui) that has fuzzy search (powered by Nucleo) to easily find available commands and run them:
 ```bash
@@ -41,23 +48,21 @@ Just type to search, use up/down arrow keys to navigate the list, and press `Ent
 
 You can exit with the `Escape` key or `ctrl + c`
 
-### Calling commands
-Or, calling the command directly:
-```bash
-ds hello-world
-```
-
-That's it!
 
 ## Grouping and nesting
 Commands can be nested in groups:
 ```json
 {
   "commands": {
-    "hello": {
+    "app": {
       "commands": {
-        "world": "echo 'Hello, world!'"
-        "foo": "echo 'bar'"
+        "dev": "pnpm run dev",
+        "build": "pnpm run build"
+      }
+    },
+    "api": {
+      "commands": {
+        "dev": "fastapi dev main.py"
       }
     }
   }
@@ -66,7 +71,9 @@ Commands can be nested in groups:
 
 Then you can run these:
 ```bash
-ds hello world
+ds app dev
+ds app build
+ds api dev
 ```
 
 There is no limit on how deep you can nest.
@@ -78,18 +85,28 @@ You can also change which command to run by default by setting the `default` set
 ```json
 {
   "commands": {
-    "hello": {
-      "default": "world",
+    "app": {
+      "default": "dev",
       "commands": {
-        "world": "echo 'Hello, world!'"
-        "foo": "echo 'bar'"
+        "dev": "pnpm run dev",
+        "build": "pnpm run build"
+      }
+    },
+    "api": {
+      "default": "dev",
+      "commands": {
+        "dev": "fastapi dev main.py"
       }
     }
   }
 }
 ```
 
-So now, `ds hello` will run `ds hello world`.
+So now, you can call the group without extra arguments:
+```bash
+ds app
+```
+And that will run `ds app dev`.
 
 ## Aliasing
 You can add aliases for groups and individual commands:
@@ -135,7 +152,7 @@ Environments are merged/overwritten if they are defined on multiple levels.
 ```json
 {
   "commands": {
-    "build": "npm build"
+    "build": "pnpm run build"
   },
   "envs": {
     "dev": ".env.dev",
@@ -155,7 +172,7 @@ You can also define a default env:
 ```json
 {
   "commands": {
-    "build": "npm build"
+    "build": "pnpm run build"
   },
   "default_env": "dev",
   "envs": {
@@ -172,7 +189,7 @@ You can also run a command to load the environment, for example to use a secret 
 ```json
 {
   "commands": {
-    "build": "npm build"
+    "build": "pnpm run build"
   },
   "default_env": "dev",
   "envs": {
