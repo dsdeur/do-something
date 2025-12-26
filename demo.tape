@@ -4,16 +4,21 @@ Sleep 500ms
 Type "ds"
 Sleep 500ms
 Enter
-Sleep 2000ms
+Sleep 1.5s
 Type "build"
-Sleep 2000ms
+Sleep 1.5s
 Backspace 8
 Type "test"
-Sleep 2000ms
+Sleep 1.5s
+Backspace 9
+Type "clippy"
+Sleep 0.5s
+Down
+Sleep 1.5s
 Enter
 Sleep 1.5s
-Type "ds t"
-Sleep 1000ms
+Type "ds cl"
+Sleep 1s
 Enter
-Sleep 1.5s
+Sleep 2s
 Ctrl+D
