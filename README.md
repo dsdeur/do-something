@@ -17,8 +17,11 @@ The basics should work fairly well, but I would not be surprised if there are bu
 Only tested on Mac OS and Ubuntu, it will probably not work on Windows.
 
 ## Install
+Clone the repo. Build and install:
 ```bash
-cargo install do-something
+git clone git@github.com:dsdeur/do-something.git
+cd do-something
+cargo build --release && cargo install --path .
 ```
 
 ## How to use
@@ -200,7 +203,7 @@ You can also run a command to load the environment, for example to use a secret 
       }
     },
     "prod": {
-      "command": "op run --",
+      "command_prefix": "op run --",
       "vars": {
         "ENVIRONMENT": "production"
       }
