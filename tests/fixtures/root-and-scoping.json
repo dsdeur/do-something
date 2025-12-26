@@ -4,7 +4,7 @@
       "command": "echo 'WithRoot'",
       "root": {
         "path": "/command/root",
-        "scope": "GitRoot"
+        "scope": "git_root"
       }
     },
     "global-group": {
@@ -13,7 +13,7 @@
       },
       "root": {
         "path": "/nested/folder",
-        "scope": "Global"
+        "scope": "global"
       }
     },
     "git-root-group": {
@@ -22,7 +22,7 @@
       },
       "root": {
         "path": "/nested/folder",
-        "scope": "GitRoot"
+        "scope": "git_root"
       }
     },
     "exact-group": {
@@ -31,7 +31,7 @@
       },
       "root": {
         "path": "/nested/folder",
-        "scope": "Exact"
+        "scope": "exact"
       }
     },
     "no-root-group": {

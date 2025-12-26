@@ -26,6 +26,7 @@ pub enum Walk {
 /// - Set group mode to Flattened, so the commands are available without the extra step
 ///   (e.g. `ds command` instead of `ds group command`).
 #[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum GroupMode {
     Namespaced,
     Flattened,

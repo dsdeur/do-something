@@ -213,7 +213,7 @@ You can also run a command to load the environment, for example to use a secret 
 ```
 
 ## Flatten groups
-Sometimes you want to group commands, so you can add settings and environments, but not have an extra word to type. For this set the `mode` group setting to `Flattened`:
+Sometimes you want to group commands, so you can add settings and environments, but not have an extra word to type. For this set the `mode` group setting to `flattened`:
 
 ```json
 {
@@ -228,7 +228,7 @@ Sometimes you want to group commands, so you can add settings and environments, 
         "dev": ".env.dev",
         "prod": ".env.prod"
       },
-      "mode": "Flattened"
+      "mode": "flattened"
     },
     "other-command": "echo 'Hello'"
   }
@@ -277,9 +277,9 @@ Sometimes you can't add a `ds.json` in a project, for example if it's not your p
 To "inject" commands in a folder, you can use the `scope` setting of the root config.
 
 You have three scoping options:
-- `Global` (default): The commands are always available
-- `GitRoot`: The commands are available in the git folder
-- `Exact`: The commands only run in the folder that is set in `path`
+- `global` (default): The commands are always available
+- `git_root`: The commands are available in the git folder
+- `exact`: The commands only run in the folder that is set in `path`
 
 ```json
 {
@@ -288,7 +288,7 @@ You have three scoping options:
   },
   "root": {
     "path": "~/path/to/git/root",
-    "scope": "GitRoot"
+    "scope": "git_root"
   }
 }
 ```
@@ -301,8 +301,8 @@ You can configure Do Something by creating a config file `~/.config/do-something
 Settings:
 - `ds_files`: Define where to look for command files, you can use glob patterns.
 - `on_conflict`: What to do when there are two commands with the same key.
-  - `Override` (Default): The last command is used
-  - `Error`: Instead of running a command it will throw an error
+  - `override` (Default): The last command is used
+  - `error`: Instead of running a command it will throw an error
 
 
 ## Why another command runner?

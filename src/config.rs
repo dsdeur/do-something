@@ -6,21 +6,13 @@ use std::{collections::HashSet, env, path::PathBuf};
 
 /// Configure how to handle commands with the same key
 #[derive(Debug, Serialize, Deserialize, Default, Copy, Clone)]
+#[serde(rename_all = "snake_case")]
 pub enum OnConflict {
     /// Keep the last defined command
     #[default]
     Override,
     /// Error on conflict
     Error,
-}
-
-#[derive(Debug, Serialize, Deserialize, Default)]
-pub enum HelpMode {
-    /// Show a classic list of help commands
-    #[default]
-    List,
-    /// Use fzf to fuzzy search commands
-    Fzf,
 }
 
 /// Global configuration for the application

@@ -256,10 +256,12 @@ mod tests {
     #[test]
     fn match_build_command_with_env_command() {
         let mut ds = make_ds(&["./tests/fixtures/full.json"]);
-        let matched = ds.match_command(&["app", "b", "prod"]).unwrap();
+        let matched = ds
+            .match_command(&["app", "b", "prod", "--extra-flag"])
+            .unwrap();
         let (command, parents) = ds.command_from_match(&matched).unwrap();
         let runner = command
-            .runner(&parents, &["prod"], &matched.file_path)
+            .runner(&parents, &["prod", "--extra-flag"], &matched.file_path)
             .unwrap();
 
         assert_eq!(matched.score, 2);
@@ -275,7 +277,8 @@ mod tests {
                 vec![
                     OsStr::new("-c"),
                     // The command prefix from the env command
-                    OsStr::new("COMMAND_VAR=production echo app-build")
+                    // Extra args are appended after the main command
+                    OsStr::new("COMMAND_VAR=production echo app-build --extra-flag")
                 ]
             );
             assert_eq!(

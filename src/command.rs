@@ -13,6 +13,7 @@ use std::{
 
 /// Configures when a command or group is available to run.
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[serde(rename_all = "snake_case")]
 pub enum RootScope {
     /// The command is always in scope
     #[default]

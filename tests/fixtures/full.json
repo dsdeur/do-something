@@ -3,7 +3,7 @@
     "app": {
       "commands": {
         "with-env": {
-          "mode": "Flattened",
+          "mode": "flattened",
           "default_env": "dev",
           "commands": {
             "build": {
