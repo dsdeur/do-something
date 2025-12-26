@@ -260,3 +260,76 @@ impl DsFile {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn match_score_cases() {
+        struct Case {
+            name: &'static str,
+            keys: Vec<&'static str>,
+            alias_keys: Vec<Vec<&'static str>>,
+            target: Vec<&'static str>,
+            expected_score: Option<usize>,
+        }
+
+        let cases = vec![
+            Case {
+                name: "Exact match",
+                keys: vec!["group", "cmd"],
+                alias_keys: vec![vec!["group"], vec!["cmd"]],
+                target: vec!["group", "cmd"],
+                expected_score: Some(2),
+            },
+            Case {
+                name: "Match by alias",
+                keys: vec!["group", "cmd"],
+                alias_keys: vec![vec!["g", "group"], vec!["c", "cmd"]],
+                target: vec!["g", "c"],
+                expected_score: Some(2),
+            },
+            Case {
+                name: "Partial match is nested and rejected",
+                keys: vec!["group", "cmd"],
+                alias_keys: vec![vec!["group"], vec!["cmd"]],
+                target: vec!["group"],
+                expected_score: None,
+            },
+            Case {
+                name: "Mismatch at first segment",
+                keys: vec!["group", "cmd"],
+                alias_keys: vec![vec!["group"], vec!["cmd"]],
+                target: vec!["other"],
+                expected_score: None,
+            },
+            Case {
+                name: "Mismatch after first segment",
+                keys: vec!["group", "cmd"],
+                alias_keys: vec![vec!["group"], vec!["cmd"]],
+                target: vec!["group", "nope"],
+                expected_score: None,
+            },
+            Case {
+                name: "Extra target segments still match",
+                keys: vec!["group"],
+                alias_keys: vec![vec!["group"]],
+                target: vec!["group", "extra"],
+                expected_score: Some(1),
+            },
+        ];
+
+        for case in cases {
+            let result = Match::from_command(
+                PathBuf::from("ds.json"),
+                &case.keys,
+                &case.alias_keys,
+                &case.target,
+            );
+
+            let score = result.as_ref().map(|m| m.score);
+            assert_eq!(score, case.expected_score, "{}", case.name);
+        }
+    }
+}

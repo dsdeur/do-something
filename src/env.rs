@@ -150,3 +150,47 @@ pub fn get_env_by_key<'a>(
 
     env.copied()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_match_env() {
+        let mut envs: BTreeMap<String, Env> = BTreeMap::new();
+        envs.insert("dev".to_string(), Env::Dotenv(".env.dev".to_string()));
+        envs.insert(
+            "prod".to_string(),
+            Env::Vars(EnvVars {
+                vars: [("MODE".to_string(), "prod".to_string())].into(),
+            }),
+        );
+
+        let envs_ref: BTreeMap<&String, &Env> = envs.iter().map(|(k, v)| (k, v)).collect();
+
+        let result = match_env(BTreeMap::new(), None, &["dev"]).unwrap();
+        assert!(result.is_none(), "no envs should return None");
+
+        let result = match_env(envs_ref.clone(), None, &["dev", "extra"]).unwrap();
+        let (env, remaining) = result.unwrap();
+        assert_eq!(env, envs.get("dev").unwrap());
+        assert_eq!(remaining, ["extra"]);
+
+        let result = match_env(envs_ref.clone(), Some("prod"), &[]).unwrap();
+        let (env, remaining) = result.unwrap();
+        assert_eq!(env, envs.get("prod").unwrap());
+        assert!(remaining.is_empty());
+
+        let err = match_env(envs_ref.clone(), None, &[]).unwrap_err();
+        assert!(err.to_string().contains("No environment specified"));
+
+        let err = match_env(envs_ref.clone(), Some("missing"), &[]).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("default environment 'missing' is not found")
+        );
+
+        let err = match_env(envs_ref, None, &["unknown"]).unwrap_err();
+        assert!(err.to_string().contains("Environment not found"));
+    }
+}
