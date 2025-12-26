@@ -1,5 +1,5 @@
 # Do Something
-A simple yet powerful command runner.
+A simple yet powerful command runner, with TUI and fuzzy search.
 
 ## Highlights
 - **Quick access**: Two-letter binary `ds` conveniently located on the keyboard for blazingly fast access.
