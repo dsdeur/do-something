@@ -160,7 +160,7 @@ impl DoSomething {
                 args.push(env.as_str());
             }
 
-            let runner = command.runner(&parents, args.as_slice())?;
+            let runner = command.runner(&parents, args.as_slice(), &row.file_path)?;
             self.run(runner)?;
         }
 
@@ -189,7 +189,7 @@ impl DoSomething {
         // Get the runner based on the provided arguments
         let match_ = self.match_command(args_str)?;
         let (command, parents) = self.command_from_match(&match_)?;
-        let runner = command.runner(&parents, &args_str[match_.score..])?;
+        let runner = command.runner(&parents, &args_str[match_.score..], &match_.file_path)?;
 
         // Execute the runner
         match runner {
@@ -203,6 +203,87 @@ impl DoSomething {
 
                 std::process::exit(0);
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::HashMap, ffi::OsStr};
+
+    use super::*;
+
+    fn make_ds(paths: &[&str]) -> DoSomething {
+        DoSomething {
+            ds_files: DsFiles::default(),
+            config: GlobalConfig::default(),
+            paths: paths.iter().map(|p| PathBuf::from(p)).collect(),
+            current_dir: std::env::current_dir().unwrap(),
+            git_root: None,
+        }
+    }
+
+    #[test]
+    fn match_dev_command_with_env_file() {
+        let mut ds = make_ds(&["./tests/fixtures/full.json"]);
+        let matched = ds.match_command(&["app", "dev"]).unwrap();
+        let (command, parents) = ds.command_from_match(&matched).unwrap();
+        let runner = command.runner(&parents, &[], &matched.file_path).unwrap();
+
+        assert_eq!(matched.score, 2);
+        assert_eq!(matched.keys, vec!["app", "with-env", "dev"]);
+        assert_eq!(command.command(), Some("echo app-dev"));
+
+        if let Runner::Command(cmd_str, command) = runner {
+            let env_map: HashMap<&OsStr, Option<&OsStr>> = command.get_envs().collect();
+            let args = command.get_args().collect::<Vec<&OsStr>>();
+
+            assert_eq!(cmd_str, "echo app-dev");
+            assert_eq!(args, vec![OsStr::new("-c"), OsStr::new("echo app-dev")]);
+            assert_eq!(
+                env_map.get(OsStr::new("ENV_VAR")),
+                Some(&Some(OsStr::new("env_value")))
+            );
+            assert_eq!(
+                env_map.get(OsStr::new("ENVIRONMENT")),
+                Some(&Some(OsStr::new("development")))
+            );
+        } else {
+            panic!("Expected Runner::Command");
+        }
+    }
+
+    #[test]
+    fn match_build_command_with_env_command() {
+        let mut ds = make_ds(&["./tests/fixtures/full.json"]);
+        let matched = ds.match_command(&["app", "b", "prod"]).unwrap();
+        let (command, parents) = ds.command_from_match(&matched).unwrap();
+        let runner = command
+            .runner(&parents, &["prod"], &matched.file_path)
+            .unwrap();
+
+        assert_eq!(matched.score, 2);
+        assert_eq!(matched.keys, vec!["app", "with-env", "build"]);
+        assert_eq!(command.command(), Some("echo app-build"));
+
+        if let Runner::Command(_cmd_str, command) = runner {
+            let args = command.get_args().collect::<Vec<&OsStr>>();
+            let env_map: HashMap<&OsStr, Option<&OsStr>> = command.get_envs().collect();
+
+            assert_eq!(
+                args,
+                vec![
+                    OsStr::new("-c"),
+                    // The command prefix from the env command
+                    OsStr::new("COMMAND_VAR=production echo app-build")
+                ]
+            );
+            assert_eq!(
+                env_map.get(OsStr::new("ENVIRONMENT")),
+                Some(&Some(OsStr::new("production")))
+            );
+        } else {
+            panic!("Expected Runner::Command");
         }
     }
 }

@@ -1,6 +1,9 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::{
+    collections::BTreeMap,
+    path::{Path, PathBuf},
+};
 
 /// Environment configuration, a dotenv file path
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -14,8 +17,8 @@ pub struct DotenvConfig {
 /// Environment configuration, run a command to load environment variables
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct EnvCommand {
-    /// The command to run to load environment variables
-    pub command: String,
+    /// What to prefix the command with when running to load environment variables
+    pub command_prefix: String,
     /// Optional list of specific variables to load from the command output
     pub vars: Option<BTreeMap<String, String>>,
 }
@@ -47,13 +50,24 @@ pub struct RunnerEnv {
     pub vars: Option<BTreeMap<String, String>>,
 }
 
+fn get_path(file_path: impl AsRef<Path>, env_path: impl AsRef<Path>) -> PathBuf {
+    file_path
+        .as_ref()
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(env_path)
+}
+
 impl Env {
     /// Get the environment variables and/or command to run from the config
-    pub fn get_env_vars(&self) -> RunnerEnv {
+    pub fn get_env_vars(&self, file_path: impl AsRef<Path>) -> RunnerEnv {
         match self {
             Env::Dotenv(path) => {
+                let full_path = get_path(&file_path, path);
+                println!("Loading dotenv from path: {}", full_path.display());
+
                 // Load from dotenv file
-                let env_vars = dotenvy::from_path_iter(path)
+                let env_vars = dotenvy::from_path_iter(full_path)
                     .unwrap()
                     .filter_map(|item| item.ok())
                     .collect();
@@ -65,7 +79,10 @@ impl Env {
             }
             Env::Config(config) => {
                 // Load from dotenv file with specific vars
-                let mut env_vars: BTreeMap<String, String> = dotenvy::from_path_iter(&config.path)
+                let full_path = get_path(&file_path, &config.path);
+                println!("Loading dotenv from path: {}", full_path.display());
+
+                let mut env_vars: BTreeMap<String, String> = dotenvy::from_path_iter(full_path)
                     .unwrap()
                     .filter_map(|item| item.ok())
                     .collect();
@@ -83,7 +100,7 @@ impl Env {
                 }
             }
             Env::Command(cmd) => RunnerEnv {
-                command: Some(cmd.command.clone()),
+                command: Some(cmd.command_prefix.clone()),
                 vars: cmd.vars.clone(),
             },
             Env::Vars(vars) => RunnerEnv {

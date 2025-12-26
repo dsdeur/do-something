@@ -1,0 +1,40 @@
+{
+  "commands": {
+    "app": {
+      "commands": {
+        "with-env": {
+          "mode": "Flattened",
+          "default_env": "dev",
+          "commands": {
+            "build": {
+              "aliases": ["b"],
+              "command": "echo app-build"
+            },
+            "dev": "echo app-dev"
+          },
+          "envs": {
+            "dev": {
+              "path": "./.env-example",
+              "vars": {
+                "ENVIRONMENT": "development"
+              }
+            },
+            "prod": {
+              "command_prefix": "COMMAND_VAR=production",
+              "vars": {
+                "ENVIRONMENT": "production"
+              }
+            }
+          }
+        },
+        "lint": "echo app-lint"
+      }
+    },
+    "api": {
+      "commands": {
+        "run": "echo api-run",
+        "test": "echo api-test"
+      }
+    }
+  }
+}

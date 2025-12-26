@@ -18,13 +18,14 @@ fn create_command(
     work_dir: Option<impl AsRef<Path>>,
     args: &[&str],
     env: Option<&Env>,
+    file_path: impl AsRef<Path>,
 ) -> Result<(ProcessCommand, String)> {
     let mut cmd = ProcessCommand::new("sh");
     let mut command_str = command.to_string();
 
     // Handle environment
     if let Some(env) = env {
-        let RunnerEnv { command, vars } = env.get_env_vars();
+        let RunnerEnv { command, vars } = env.get_env_vars(file_path);
 
         // Prepend the command if specified
         if let Some(cmd) = command {
@@ -77,8 +78,9 @@ impl Runner {
         path: Option<impl AsRef<Path>>,
         args: &[&str],
         env: Option<&Env>,
+        file_path: impl AsRef<Path>,
     ) -> Result<Self> {
-        let (cmd, cmd_str) = create_command(command, path, args, env)?;
+        let (cmd, cmd_str) = create_command(command, path, args, env, file_path)?;
         Ok(Runner::Command(cmd_str, Box::new(cmd)))
     }
 
@@ -91,13 +93,16 @@ impl Runner {
         parents: &[&Group],
         extra_args: &[&str],
         env: Option<&Env>,
+        file_path: impl AsRef<Path>,
     ) -> Result<Self> {
         let path = command.resolve_root_path(parents)?;
 
         let runner = match command {
-            Command::Inline(cmd) => Runner::new_command(cmd, path.as_ref(), extra_args, env)?,
+            Command::Inline(cmd) => {
+                Runner::new_command(cmd, path.as_ref(), extra_args, env, file_path)?
+            }
             Command::Config(CommandConfig { command: cmd, .. }) => {
-                Runner::new_command(cmd, path.as_ref(), extra_args, env)?
+                Runner::new_command(cmd, path.as_ref(), extra_args, env, file_path)?
             }
             Command::Group(_group) => Runner::Help,
         };

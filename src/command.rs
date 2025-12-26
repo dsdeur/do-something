@@ -127,7 +127,12 @@ impl Command {
     }
 
     /// Get the command runner for the command definition
-    pub fn runner<'a>(&'a self, parents: &[&'a Group], args: &'a [&'a str]) -> Result<Runner> {
+    pub fn runner<'a>(
+        &'a self,
+        parents: &[&'a Group],
+        args: &'a [&'a str],
+        file_path: impl AsRef<Path>,
+    ) -> Result<Runner> {
         let (envs, default_env) = self.resolve_envs(parents);
         let mut extra_args = args;
 
@@ -138,7 +143,7 @@ impl Command {
             None
         };
 
-        Runner::from_command(self, parents, extra_args, env)
+        Runner::from_command(self, parents, extra_args, env, file_path)
     }
 
     /// Get the merged environment configurations from the command and its parents
@@ -621,7 +626,7 @@ mod tests {
                     (
                         "group-command",
                         Env::Command(crate::env::EnvCommand {
-                            command: "echo 'GroupEnvCommand'".to_string(),
+                            command_prefix: "echo 'GroupEnvCommand'".to_string(),
                             vars: None,
                         }),
                     ),
@@ -657,7 +662,7 @@ mod tests {
                     (
                         "group-command",
                         Env::Command(crate::env::EnvCommand {
-                            command: "echo 'GroupEnvCommand'".to_string(),
+                            command_prefix: "echo 'GroupEnvCommand'".to_string(),
                             vars: None,
                         }),
                     ),

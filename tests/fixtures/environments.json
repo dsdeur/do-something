@@ -33,7 +33,7 @@
           }
         },
         "group-command": {
-          "command": "echo 'GroupEnvCommand'"
+          "command_prefix": "echo 'GroupEnvCommand'"
         }
       }
     }
