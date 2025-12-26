@@ -2,6 +2,7 @@
 A simple yet powerful command runner, with TUI and fuzzy search.
 
 ![demo](./demo.gif)
+<br/><br/>
 
 ## Highlights
 - **Quick access**: Two-letter binary `ds` conveniently located on the keyboard for blazingly fast access.
@@ -11,6 +12,11 @@ A simple yet powerful command runner, with TUI and fuzzy search.
 - **Organization**: Define commands in multiple files, for specific folders, or globally available.
 - **Environments**: Manage your environments, load dotenv files, run custom commands, and/or define custom environment vars.
 - **JSON Config**: Simple configuration in JSON files.
+
+<br/>
+
+<img width="400" alt="image" src="https://github.com/user-attachments/assets/8843abe1-9083-4eeb-ab77-deb0c4c9d205" />
+<br/>
 
 ## Disclaimer & warning
 This is a work in progress side project, unpublished, alpha version, use at your own risk.
