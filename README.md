@@ -309,7 +309,7 @@ Settings:
 
 
 ## Why another command runner?
-There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and easy to use. Secondarily, I wanted to improve my Rust skills.
+There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and easy to use. Secondarily, I have been wanting to build something in Rust, and this seemed like a great project for it.
 
 ### Alternatives
 To keep Do Something simple, it is limited in features and capabilities, and alpha version software. If you need something more powerful, customizable, and mature, I suggest using [Just](https://github.com/casey/just), which is incredibly powerful and full-featured, and an overall amazing application.
