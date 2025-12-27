@@ -362,6 +362,11 @@ Note: Error is in theory a bit slower, as it will have to read all files to know
 
 <br/>
 
+## Extra arguments and options
+You can pass extra arguments and options after the command, they will automatically be added to the command. 
+
+<br/>
+
 ## Why another command runner?
 There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and super easy to use. It's optimized for convenience and efficiency at the cost of (some) flexibility and customization. Also, I have been wanting to build a project in Rust for a while, and this seemed like a great match.
 
@@ -381,10 +386,6 @@ Of course JSON has its limitations. I'm considering adding JSONC or JSON5 suppor
 
 <br/>
 
-## Was this vibe-coded?
-Mostly no, except for 1 or 2 of the tests. I have used LLM's extensively to learn, review the code, explain errors, and workshop ideas and alternative approach. This has been incredibly helpful. My goal was learning the language, so I did write it myself (and rewrote it multiple times) to improve my skills and understanding.
-
-<br/>
 
 ## Contributing
 I have limited time to work on this, but PRs are very welcome. If you have plans to add features, please discuss it first in issues, as I do intend to keep it simple.
