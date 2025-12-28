@@ -26,11 +26,11 @@ pub fn resolve_path(input: &str, file_path: impl AsRef<Path>) -> Result<PathBuf>
 
     if path.is_absolute() {
         let res = path::absolute(path)?;
-        return Ok(res);
+        Ok(res)
     } else {
         let path = get_file_relative_path(file_path, path);
         let res = path::absolute(&path)?;
-        return Ok(res);
+        Ok(res)
     }
 }
 
