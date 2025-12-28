@@ -73,7 +73,11 @@ impl Command {
     /// Get the root path and configuration for the command
     /// - Returns a tuple of the root configuration and the resolved path
     /// - Looks at the command first, then at the parent groups
-    pub fn resolve_root_path<'a>(&'a self, parents: &[&'a Group]) -> Result<Option<PathBuf>> {
+    pub fn resolve_root_path<'a>(
+        &'a self,
+        parents: &[&'a Group],
+        file_path: impl AsRef<Path>,
+    ) -> Result<Option<PathBuf>> {
         let command_root = match self {
             Command::Config(cmd) => cmd.root.as_ref(),
             Command::Group(group) => group.root.as_ref(),
@@ -81,7 +85,7 @@ impl Command {
         };
 
         if let Some(root) = command_root.or(parents.iter().rev().find_map(|g| g.root.as_ref())) {
-            let path = resolve_path(&root.path)?;
+            let path = resolve_path(&root.path, file_path)?;
             Ok(Some(path))
         } else {
             Ok(None)
@@ -94,7 +98,10 @@ impl Command {
     /// this means it can only be used when walking the tree, and handling each group.
     ///
     /// Resolves the root path to an absolute path (including tilde expansion).
-    fn own_root(&self) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
+    fn own_root(
+        &self,
+        file_path: impl AsRef<Path>,
+    ) -> Result<(Option<RootConfig>, Option<PathBuf>)> {
         let item_root = match self {
             Command::Config(cmd) => cmd.root.clone(),
             Command::Group(group) => group.root.clone(),
@@ -102,7 +109,7 @@ impl Command {
         };
 
         if let Some(root) = item_root {
-            let path = resolve_path(&root.path)?;
+            let path = resolve_path(&root.path, file_path)?;
             Ok((Some(root), Some(path)))
         } else {
             Ok((None, None))
@@ -184,8 +191,9 @@ impl Command {
         &self,
         current_dir: impl AsRef<Path>,
         git_root: Option<impl AsRef<Path>>,
+        file_path: impl AsRef<Path>,
     ) -> Result<bool> {
-        let root = self.own_root()?;
+        let root = self.own_root(file_path)?;
 
         if let (Some(root_config), Some(target_path)) = root {
             match root_config.scope {
@@ -408,7 +416,11 @@ mod tests {
         for case in cases {
             let result = case
                 .command
-                .is_in_scope(case.current_dir, case.git_root)
+                .is_in_scope(
+                    case.current_dir,
+                    case.git_root,
+                    "../tests/fixtures/root-and-scoping.json",
+                )
                 .unwrap();
 
             assert_eq!(result, case.is_in_scope, "{}", case.name);
@@ -465,7 +477,10 @@ mod tests {
         for case in cases {
             let result = case
                 .command
-                .resolve_root_path(&case.parents.iter().collect::<Vec<&Group>>())
+                .resolve_root_path(
+                    &case.parents.iter().collect::<Vec<&Group>>(),
+                    "../tests/fixtures/root-and-scoping.json",
+                )
                 .unwrap();
 
             assert_eq!(result, case.expected_root_path, "{}", case.name);

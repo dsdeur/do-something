@@ -1,9 +1,7 @@
+use crate::dir::get_file_relative_path;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::BTreeMap,
-    path::{Path, PathBuf},
-};
+use std::{collections::BTreeMap, path::Path};
 
 /// Environment configuration, a dotenv file path
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -32,14 +30,6 @@ pub struct RunnerEnv {
     pub vars: Option<BTreeMap<String, String>>,
 }
 
-fn get_path(file_path: impl AsRef<Path>, env_path: impl AsRef<Path>) -> PathBuf {
-    file_path
-        .as_ref()
-        .parent()
-        .unwrap_or_else(|| Path::new("."))
-        .join(env_path)
-}
-
 fn load_env(
     file_path: impl AsRef<Path>,
     path: Option<impl AsRef<Path>>,
@@ -47,7 +37,7 @@ fn load_env(
     command_prefix: Option<String>,
 ) -> Result<RunnerEnv> {
     let mut env_vars = if let Some(path) = path {
-        let full_path = get_path(&file_path, path);
+        let full_path = get_file_relative_path(&file_path, path);
         // Load from dotenv file
         dotenvy::from_path_iter(full_path)?
             .filter_map(|item| item.ok())

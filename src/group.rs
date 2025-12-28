@@ -163,7 +163,7 @@ impl Group {
 
         self.walk_tree_iter(keys, parents, &mut |keys, cmd, parents| {
             // If the command/group is not in scope, we skip it early to avoid unnecessary processing
-            match cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref()) {
+            match cmd.is_in_scope(current_dir.as_ref(), git_root.as_ref(), file_path.as_ref()) {
                 Err(_) => {
                     // Store the error and stop processing
                     err = Some(anyhow::anyhow!(

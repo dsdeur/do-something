@@ -10,11 +10,28 @@ pub fn git_root() -> Option<PathBuf> {
     repo.workdir().map(|p| p.to_path_buf())
 }
 
+/// Get a path relative to the file's directory
+pub fn get_file_relative_path(file_path: impl AsRef<Path>, env_path: impl AsRef<Path>) -> PathBuf {
+    file_path
+        .as_ref()
+        .parent()
+        .unwrap_or_else(|| Path::new("."))
+        .join(env_path)
+}
+
 /// Resolve a given path, expanding `~` to the home directory and converting to an absolute path.
-pub fn resolve_path(input: &str) -> Result<PathBuf> {
+pub fn resolve_path(input: &str, file_path: impl AsRef<Path>) -> Result<PathBuf> {
     let expanded = shellexpand::tilde(input);
-    let res = path::absolute(expanded.as_ref())?;
-    Ok(res)
+    let path = Path::new(&*expanded);
+
+    if path.is_absolute() {
+        let res = path::absolute(path)?;
+        return Ok(res);
+    } else {
+        let path = get_file_relative_path(file_path, path);
+        let res = path::absolute(&path)?;
+        return Ok(res);
+    }
 }
 
 /// Collapse a path to use `~` for the home directory if applicable

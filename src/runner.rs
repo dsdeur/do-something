@@ -95,7 +95,7 @@ impl Runner {
         env: Option<&Env>,
         file_path: impl AsRef<Path>,
     ) -> Result<Self> {
-        let path = command.resolve_root_path(parents)?;
+        let path = command.resolve_root_path(parents, &file_path)?;
 
         let runner = match command {
             Command::Inline(cmd) => {
