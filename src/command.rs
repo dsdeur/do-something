@@ -30,7 +30,7 @@ pub enum RootScope {
 /// - Used to limit commands to specific directories.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RootConfig {
-    pub path: String,
+    pub path: PathBuf,
     #[serde(default)]
     pub scope: RootScope,
 }

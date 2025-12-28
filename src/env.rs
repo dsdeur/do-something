@@ -1,4 +1,4 @@
-use crate::dir::get_file_relative_path;
+use crate::dir::resolve_path;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
@@ -37,7 +37,7 @@ fn load_env(
     command_prefix: Option<String>,
 ) -> Result<RunnerEnv> {
     let mut env_vars = if let Some(path) = path {
-        let full_path = get_file_relative_path(&file_path, path);
+        let full_path = resolve_path(path, &file_path)?;
         // Load from dotenv file
         dotenvy::from_path_iter(full_path)?
             .filter_map(|item| item.ok())

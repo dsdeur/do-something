@@ -20,8 +20,14 @@ pub fn get_file_relative_path(file_path: impl AsRef<Path>, env_path: impl AsRef<
 }
 
 /// Resolve a given path, expanding `~` to the home directory and converting to an absolute path.
-pub fn resolve_path(input: &str, file_path: impl AsRef<Path>) -> Result<PathBuf> {
-    let expanded = shellexpand::tilde(input);
+pub fn resolve_path(input: impl AsRef<Path>, file_path: impl AsRef<Path>) -> Result<PathBuf> {
+    let expanded = shellexpand::tilde(input.as_ref().to_str().ok_or_else(|| {
+        anyhow::anyhow!(
+            "Failed to convert path to string: {}",
+            input.as_ref().display()
+        )
+    })?);
+
     let path = Path::new(&*expanded);
 
     if path.is_absolute() {
