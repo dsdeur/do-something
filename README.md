@@ -390,6 +390,17 @@ Of course JSON has its limitations. I'm considering adding JSONC or JSON5 suppor
 
 <br/>
 
+## Roadmap
+If I find more time to work on this, I believe these would make it even better: 
+- Recent commands: Store commands that are run, and show them in the TUI for quick access.
+- TUI copy commands: Instead of running, allow to copy the command. This is useful to run the command manually so it will be in your shell history (instead of just `ds`).
+- TUI extra arguments and options: Add the option to add extra arguments and options before running a command from the TUI.
+- More helpful error messages: Give guidance on how to resolve them.
+- Shell integrations: Auto complete, easily configure top level aliases, add to history when running from the TUI.
+- CLI options: Typical help and version flags, config management utils, shell integration utils. 
+
+
+<br/>
 
 ## Contributing
 I have limited time to work on this, but PRs are very welcome. If you have plans to add features, please discuss it first in issues, as I do intend to keep it simple.
