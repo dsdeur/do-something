@@ -8,9 +8,9 @@ A simple yet powerful command runner, with TUI and fuzzy search.
 
 ## Highlights
 - **Quick access**: Two-letter binary `ds` conveniently located on the keyboard for blazingly fast access.
-- **Fuzzy search**: TUI with fuzzy search to easily find available commands
-- **Grouping**: Easy grouping and nesting of commands
-- **Aliases**: Create shortcuts and aliases for commands and groups
+- **Fuzzy search**: TUI with fuzzy search to easily find available commands.
+- **Grouping**: Easy grouping and nesting of commands.
+- **Aliases**: Create shortcuts and aliases for commands and groups.
 - **Organization**: Define commands in multiple files, for specific folders, or globally available.
 - **Environments**: Manage your environments, load dotenv files, run custom commands, and/or define custom environment vars.
 - **JSON Config**: Simple configuration in JSON files.
@@ -75,7 +75,7 @@ You can exit with the `Escape` key or `Ctrl+C`.
 <br/>
 
 ## Grouping and nesting
-Commands can be nested in groups:
+To organize commands you can group and nest them:
 ```json
 {
   "commands": {
@@ -94,14 +94,12 @@ Commands can be nested in groups:
 }
 ```
 
-Then you can run these:
+Then you can run them by their group and key:
 ```bash
 ds app dev
 ds app build
 ds api dev
 ```
-
-There is no limit on how deep you can nest.
 
 <br/>
 
@@ -137,8 +135,21 @@ And that will run `ds app dev`.
 
 <br/>
 
+### Conflicts & nested options
+There is no limit on how deep you can nest. If there are conflicts, by default the last command in the file is wins, the order of the files is:
+- `~/config/do-something/ds.json`
+- Paths defined in `~/config/do-something/config.json`
+- `do.json` in current git root
+- `do.json` in the current folder
+
+This means you can define a global command in your config, and then overwrite it per project. See the Config section on how to error instead.
+
+Options specified on nested groups and commands overwrite those higher up in the tree. Environments are merged by key.
+
+<br/>
+
 ## Aliasing
-You can add aliases for groups and individual commands:
+To make convenient shortcuts for your commonly used commands you can add aliases. You can add aliases for groups and individual commands:
 
 ```json
 {
@@ -167,16 +178,15 @@ ds git pl
 ds g pull
 ds git pull
 ```
-This makes it really easy to create shortcuts for frequently used commands.
 
 If you run `ds` it will show you the available aliases for each command.
 
-Tip: You can create an alias in your zsh/bash/fish to remap for example `g` to `ds g`, which would allow skipping the `ds`.
+Tip: You can create an alias in your zsh/bash/fish to remap for example `g` to `ds g`, which will allow skipping the `ds` making it even quicker to access, while still having the convenience of ds files.
 
 <br/>
 
 ## Environments
-You can define (multiple) environments on groups and commands.
+It's not uncommon to want to run the same commands with different environment files and variables. This is made easy by configuring environments on groups, and commands. 
 Environments are merged/overwritten if they are defined on multiple levels.
 
 ```json
@@ -191,7 +201,7 @@ Environments are merged/overwritten if they are defined on multiple levels.
 }
 ```
 
-Now build will be turned into two options, and the environment variables will be loaded before running the command:
+Now the `build` command will be turned into two options, and the environment variables will be loaded (using dotenvy) before running the command:
 ```bash
 ds build dev
 ds build prod
@@ -200,7 +210,7 @@ ds build prod
 <br/>
 
 ### Default environment
-You can also define a default env:
+You can also define a default environment:
 ```json
 {
   "commands": {
@@ -213,12 +223,12 @@ You can also define a default env:
   }
 }
 ```
-Now running `ds build` will load the dev environment file.
+Now running `ds build` will load the dev environment file, while you still need to run `ds build prod` to load the prod environment file.
 
 <br/>
 
 ### Commands, and custom variables
-You can also run a command to load the environment, for example to use a secret manager, as well as define custom variables
+Alternitvely to dotenv files you can also prefix your commands to load the environment, for example to use a secret manager or custom script, as well as define custom variables:
 
 ```json
 {
@@ -242,11 +252,14 @@ You can also run a command to load the environment, for example to use a secret 
   }
 }
 ```
+Running `ds build prod` will run `load-env pnpm run build`. This gives the flexibility to use a different cli to run the command, or use `&&` to first run the env, then the command.
+
+WARNING: Do not put secrets in your do.json file. Use a secrets manager and/or environment files instead.
 
 <br/>
 
 ## Flatten groups
-Sometimes you want to group commands, so you can add settings and environments, but not have an extra word to type. For this set the `mode` group setting to `flattened`:
+Sometimes you want to group commands so you can add common settings and environments, but not have to type an extra word. You can flatten groups by setting the `mode` group setting to `flattened`:
 
 ```json
 {
@@ -274,16 +287,16 @@ ds dev
 ds build prod
 ```
 
-While still benefitting from the group configuration like environments in the example.
+While still having the convenience of shared environments.
 
 <br/>
 
 ## Multiple files
-You can define your files in multiple places:
-- In a folder or git root, will be discovered in the closest git root.
-- `~/.config/do-something/ds.json`
+You can place your ds json files in multiple places:
+- In a folder or git root, it will be discovered and available in the closest git root.
+- In the config folder of do-something `~/.config/do-something/ds.json`
 
-Or place your files wherever you want and include them in the config (`~/.config/do-something/config.json`), for example:
+Or place your files wherever you want and include them in the config `ds_files` option (`~/.config/do-something/config.json`), for example I have it set up to read any json file in the commands folder in the config folder:
 ```json
 {
   "ds_files": ["~/.config/do-something/commands/*.json"]
@@ -293,7 +306,7 @@ Or place your files wherever you want and include them in the config (`~/.config
 <br/>
 
 ## Root
-You can specify where commands should run and be available by setting the root option:
+If you want to have commands that need to be run in a specific location globally available, you can specify where commands should run by setting the root option:
 ```json
 {
   "commands": {
@@ -310,12 +323,13 @@ Now the commands in this file will be run from that path. You can define the roo
 <br/>
 
 ### Scoping
-Sometimes you can't add a `ds.json` in a project, for example if it's not your project, open source, you don't want to bother your team with yet another tool.
+Sometimes you can't add a `ds.json` file in a project, for example if it's not your project, an open source project, or you just don't want to bother your team with yet another tool.
+Definiing them outside of it would conflict with other projects (for example `ds dev` is used in multiple projects).
 
-To "inject" commands in a folder, you can use the `scope` setting of the root config.
+To solve this you can use the `scope` setting in the root config to limit where commands are available, based on the path.
 
 You have three scoping options:
-- `global` (default): The commands are always available
+- `global` (default): The commands are always available, regardless of the current location
 - `git_root`: The commands are available in the git folder
 - `exact`: The commands only run in the folder that is set in `path`
 
@@ -342,12 +356,19 @@ Settings:
 - `ds_files`: Define where to look for command files, you can use glob patterns.
 - `on_conflict`: What to do when there are two commands with the same key.
   - `override` (Default): The last command is used
-  - `error`: Instead of running a command it will throw an error
+  - `error`: Instead of running a command it will throw an error.
+
+Note: Error is in theory a bit slower, as it will have to read all files to know if there is a conflict, instead of exiting when the first match is found. In practice this should make no difference unless you have many an enormous amount of files and commands. 
+
+<br/>
+
+## Extra arguments and options
+You can pass extra arguments and options after the command, they will automatically be added to the command. 
 
 <br/>
 
 ## Why another command runner?
-There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and easy to use. Secondarily, I have been wanting to build something in Rust, and this seemed like a great project for it.
+There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and super easy to use. It's optimized for convenience and efficiency at the cost of (some) flexibility and customization. Also, I have been wanting to build a project in Rust for a while, and this seemed like a great match.
 
 <br/>
 
@@ -361,9 +382,10 @@ They also have a [convenient list of alternatives](https://github.com/casey/just
 ## Why JSON?
 Preference. JSON is in my opinion the easiest format for configuration. It's simple to read, easy to learn, support is great, and makes it very easy to nest and group commands, which is one of the key features of Do Something. In other words: It's simple yet powerful, which makes it a great fit.
 
-Of course it has its limitations. I'm considering adding JSONC or JSON5 support. I think TOML isn't bad either, it works great for defining dependencies (Cargo.toml, pyproject.toml), I just find the nesting not as easy to work with, that said, I might try adding support as it seems not too difficult to add.
+Of course JSON has its limitations. I'm considering adding JSONC or JSON5 support. I think TOML isn't bad either, it works great for defining dependencies (e.g. Cargo.toml, pyproject.toml), I just find nesting not as easy to work with TOML, that said, I might try adding support in the future. 
 
 <br/>
+
 
 ## Contributing
 I have limited time to work on this, but PRs are very welcome. If you have plans to add features, please discuss it first in issues, as I do intend to keep it simple.
