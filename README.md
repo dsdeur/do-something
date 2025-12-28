@@ -207,6 +207,8 @@ ds build dev
 ds build prod
 ```
 
+Note: The path to dotenv files can be an absolute path, or relative to the `ds.json` file. 
+
 <br/>
 
 ### Default environment
@@ -319,6 +321,8 @@ If you want to have commands that need to be run in a specific location globally
 ```
 
 Now the commands in this file will be run from that path. You can define the root on files, groups and commands, just like any other settings.
+
+Note: The path can be absolute, or relative to the `do.json` file.
 
 <br/>
 
