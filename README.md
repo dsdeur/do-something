@@ -14,6 +14,7 @@ A simple yet powerful command runner, with TUI and fuzzy search.
 - **Organization**: Define commands in multiple files, for specific folders, or globally available.
 - **Environments**: Manage your environments, load dotenv files, run custom commands, and/or define custom environment vars.
 - **JSON Config**: Simple configuration in JSON files.
+- **Agent skill**: Simple agent skill for coding agents (Claude/Codex/Copilot) to discover and run your commands.
 
 <br/>
 
@@ -370,6 +371,19 @@ Note: Error is in theory a bit slower, as it will have to read all files to know
 You can pass extra arguments and options after the command, they will automatically be added to the command. 
 
 <br/>
+
+## Agent skill
+In `do-something-skill` there is a `SKILL.md` to instruct coding agents on how to list and run commands from ds. To install it run one or more of the following from the root dir of do-something:
+
+OpenAI Codex:
+```bash
+mkdir -p ~/.codex/skills && cp -R ./do-something-skill ~/.codex/skills/
+```
+
+Claude Code / Github Copilot:
+```bash
+mkdir -p ~/.claude/skills && cp -R ./do-something-skill ~/.claude/skills/
+```
 
 ## Why another command runner?
 There are many great options for command runners. I made this one to fit my exact needs: Simple to configure, a limited set of powerful features, and super easy to use. It's optimized for convenience and efficiency at the cost of (some) flexibility and customization. Also, I have been wanting to build a project in Rust for a while, and this seemed like a great match.
